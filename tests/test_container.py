@@ -2,7 +2,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 import pytest
-from classic.container import Container, ResolutionError
+from classic.container import (
+    Container, ResolutionError, Scope, params, from_context
+)
 
 
 class Interface(ABC):
@@ -21,6 +23,12 @@ class Implementation2(Interface):
 
     def method(self):
         return 2
+
+
+class Composition:
+
+    def __init__(self, impl: Interface):
+        self.impl = impl
 
 
 class SomeCls:
@@ -55,7 +63,7 @@ def test_simple_resolving():
 def test_resolve_with_abc():
     container = Container()
     container.register(Interface)
-    container.register(Interface, Implementation1)
+    container.register(Implementation1)
 
     instance = container.resolve(Interface)
 
@@ -66,26 +74,76 @@ def test_resolve_with_abc():
 def test_raise_when_many_implementations():
     container = Container()
     container.register(Interface)
-    container.register(Interface, Implementation1)
-    container.register(Interface, Implementation2)
+    container.register(Implementation1)
+    container.register(Implementation2)
 
     with pytest.raises(ResolutionError):
         container.resolve(Interface)
 
 
-def test_resolve_implementation_in_context():
+def test_resolve_with_replacement():
     container = Container()
     container.register(Interface)
-    container.register(Interface, Implementation1)
-    container.register(Interface, Implementation2)
+    container.register(Implementation1)
+    container.register(Implementation2)
 
-    container.register_context(
-        default={
-            Interface: Implementation1
-        }
-    )
+    container.settings({
+        Interface: params(replace=Implementation1)
+    })
 
     instance = container.resolve(Interface)
 
     assert instance is not None
     assert isinstance(instance, Implementation1)
+
+
+def test_resolve_replace_from_context():
+    container = Container()
+    container.register(Interface)
+    container.register(Implementation1)
+    container.register(Implementation2)
+    container.register(Composition)
+
+    container.settings({
+        Interface: params(replace=Implementation1),
+    }, context='ctx1')
+
+    container.settings({
+        Interface: params(replace=Implementation2),
+    }, 'ctx2')
+
+    container.settings({
+        Composition: params(init={
+            'impl': from_context('ctx1'),
+        })
+    })
+
+    instance = container.resolve(Composition)
+
+    assert instance is not None
+    assert isinstance(instance, Composition)
+    assert isinstance(instance.impl, Implementation1)
+
+
+def test_singleton_scope():
+    container = Container()
+    container.register(Implementation1)
+
+    instance = container.resolve(Implementation1)
+    instance2 = container.resolve(Implementation1)
+
+    assert instance is instance2
+
+
+def test_transient_scope():
+    container = Container()
+    container.register(Implementation1)
+
+    container.settings({
+        Implementation1: params(scope=Scope.TRANSIENT)
+    })
+
+    instance = container.resolve(Implementation1)
+    instance2 = container.resolve(Implementation1)
+
+    assert instance is not instance2
