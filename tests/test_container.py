@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import pytest
 from classic.container import (
-    Container, ResolutionError, Scope, params, from_context
+    Container, ResolutionError, TRANSIENT, cls, from_context
 )
 
 
@@ -55,8 +55,10 @@ def test_simple_resolving():
     instance = container.resolve(YetAnotherCls)
 
     assert instance is not None
+    assert isinstance(instance, YetAnotherCls)
     assert isinstance(instance.some, SomeCls)
     assert isinstance(instance.another, AnotherCls)
+    assert isinstance(instance.another.some, SomeCls)
     assert instance.some is instance.another.some
 
 
@@ -87,9 +89,9 @@ def test_resolve_with_replacement():
     container.register(Implementation1)
     container.register(Implementation2)
 
-    container.settings({
-        Interface: params(replace=Implementation1)
-    })
+    container.rules(
+        cls(Interface).replace(Implementation1),
+    )
 
     instance = container.resolve(Interface)
 
@@ -104,19 +106,19 @@ def test_resolve_replace_from_context():
     container.register(Implementation2)
     container.register(Composition)
 
-    container.settings({
-        Interface: params(replace=Implementation1),
-    }, context='ctx1')
+    container.rules(
+        cls(Interface).replace(Implementation1),
+        context='ctx1'
+    )
 
-    container.settings({
-        Interface: params(replace=Implementation2),
-    }, 'ctx2')
+    container.rules(
+        cls(Interface).replace(Implementation2),
+        context='ctx2',
+    )
 
-    container.settings({
-        Composition: params(init={
-            'impl': from_context('ctx1'),
-        })
-    })
+    container.rules(
+        cls(Composition).init(impl=from_context('ctx1')),
+    )
 
     instance = container.resolve(Composition)
 
@@ -139,9 +141,9 @@ def test_transient_scope():
     container = Container()
     container.register(Implementation1)
 
-    container.settings({
-        Implementation1: params(scope=Scope.TRANSIENT)
-    })
+    container.rules(
+        cls(Implementation1).has_scope(TRANSIENT)
+    )
 
     instance = container.resolve(Implementation1)
     instance2 = container.resolve(Implementation1)

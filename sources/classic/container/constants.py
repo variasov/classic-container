@@ -1,6 +1,5 @@
-import enum
 
+SINGLETON = 'SINGLETON'
+TRANSIENT = 'TRANSIENT'
 
-class Scope(enum.Enum):
-    SINGLETON = enum.auto()
-    TRANSIENT = enum.auto()
+SCOPES = (SINGLETON, TRANSIENT)

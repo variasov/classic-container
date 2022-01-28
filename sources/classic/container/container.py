@@ -1,65 +1,69 @@
 import inspect
-from dataclasses import dataclass, field
 from collections import defaultdict
-from typing import Any, List, Dict
+from typing import Any, Dict
 
-from .context import Context, FromContext, default_params
-from .constants import Scope
+from .settings import Rule, FromContext
+from .constants import SINGLETON
 
 __all__ = ['Container', 'ResolutionError']
+
+
+Rules = Dict[Any, Rule]
 
 
 class ResolutionError(BaseException):
     pass
 
 
-@dataclass
 class Registration:
-    target: Any
-    factories: List[Any] = field(default_factory=list)
+
+    def __init__(self, target: Any):
+        self.target = target
+        self._factories = []
 
     def add_factory(self, factory):
-        self.factories.append(factory)
+        self._factories.append(factory)
 
     def find_factory(self, cls):
-        for factory in self.factories:
+        for factory in self._factories:
             if factory == cls:
                 return factory
 
-    def get_factory(self, context):
-        if self.target in context.rules:
-            params = context.rules[self.target]
-            if params.replace:
-                factory = self.find_factory(params.replace)
+    def get_factory(self, rules: Rules, ctx_name: str):
+        if self.target in rules:
+            params = rules[self.target]
+            if params.replacement:
+                factory = self.find_factory(params.replacement)
                 if factory is None:
                     raise ResolutionError(
-                        f"Can't resolve replacement {params.replace} "
-                        f"for class {self.target} in context {context.name}"
+                        f"Can't resolve replacement {params.replacement} "
+                        f"for class {self.target} in context {ctx_name}"
                     )
 
                 return factory
 
-        if not self.factories:
+        if not self._factories:
             raise ResolutionError(f'Class {self.target} do not have '
                                   f'registered implementations')
 
-        if len(self.factories) > 1:
+        if len(self._factories) > 1:
             raise ResolutionError(f'Can not to resolve {self.target}, '
-                                  f'implementations are: {self.factories}')
+                                  f'implementations are: {self._factories}')
 
-        return self.factories[0]
+        return self._factories[0]
 
 
-@dataclass
 class Registrations:
-    registrations: Dict[Any, Registration] = field(default_factory=dict)
+
+    def __init__(self):
+        self._registrations = {}
 
     def get(self, target):
-        return self.registrations.get(target)
+        return self._registrations.get(target)
 
     def create(self, target):
         registration = Registration(target)
-        self.registrations[target] = registration
+        self._registrations[target] = registration
         return registration
 
     def get_or_create(self, target):
@@ -74,31 +78,30 @@ class Registrations:
         if factory is not None:
             registration.add_factory(factory)
 
-    def get_factory(self, cls, context: Context):
+    def get_factory(self, cls, rules: Rules, ctx_name: str):
         registration = self.get(cls)
-
         if registration is None:
             raise ResolutionError(f"Class {cls} don't registered in container")
 
-        return registration.get_factory(context)
+        return registration.get_factory(rules, ctx_name)
 
 
 class Container:
 
     def __init__(self):
-        self.registrations = Registrations()
-        self.contexts = {
-            'default': Context('default'),
+        self._registrations = Registrations()
+        self._contexts = {
+            'default': {},
         }
-        self.instances = defaultdict(dict)
+        self._instances = defaultdict(dict)
 
-    def settings(self, settings: Dict[Any, Any], context='default'):
-        context_obj = self.contexts.get(context)
-        if context_obj is None:
-            context_obj = Context(context)
-            self.contexts[context] = context_obj
-
-        context_obj.update(settings)
+    def rules(self, *new_rules: Rule, context: str = 'default'):
+        rules = self._contexts.get(context, {})
+        rules.update({
+            rule.cls: rule
+            for rule in new_rules
+        })
+        self._contexts[context] = rules
 
     @staticmethod
     def _get_interfaces_for_cls(target):
@@ -109,23 +112,24 @@ class Container:
     def register(self, *targets):
         for target in targets:
             if inspect.isabstract(target):
-                self.registrations.add(target)
+                self._registrations.add(target)
             else:
                 for cls in self._get_interfaces_for_cls(target):
-                    self.registrations.add(cls, target)
+                    self._registrations.add(cls, target)
 
     def resolve(self, cls, context='default'):
-        return self._get_instance(cls, self.contexts[context])
+        return self._get_instance(cls, context)
 
-    def _get_instance(self, cls, context):
-        if cls in self.instances[context]:
-            return self.instances[context][cls]
-        return self._create_instance(cls, context)
+    def _get_instance(self, cls, ctx_name):
+        if cls in self._instances[ctx_name]:
+            return self._instances[ctx_name][cls]
+        return self._create_instance(cls, ctx_name)
 
-    def _create_instance(self, cls, context):
-        rule = context.rules.get(cls, default_params)
+    def _create_instance(self, cls, ctx_name):
+        rules = self._contexts[ctx_name]
 
-        factory = self.registrations.get_factory(cls, context)
+        factory = self._registrations.get_factory(cls, rules, ctx_name)
+        rule = rules.get(cls, Rule(cls))
         kwargs = {}
 
         signature = inspect.signature(cls)
@@ -136,25 +140,24 @@ class Container:
                     f"annotation for parameter {parameter.name}"
                 )
 
-            if parameter.name in rule.init:
-                value = rule.init[parameter.name]
+            if parameter.name in rule.init_kwargs:
+                value = rule.init_kwargs[parameter.name]
                 if isinstance(value, FromContext):
-                    new_context = self.contexts[value.context_name]
                     resolved_instance = self._get_instance(
-                        parameter.annotation, new_context,
+                        parameter.annotation, value.context_name,
                     )
                 else:
                     resolved_instance = value
             else:
                 resolved_instance = self._get_instance(
-                    parameter.annotation, context,
+                    parameter.annotation, ctx_name,
                 )
 
             kwargs[parameter.name] = resolved_instance
 
         instance = factory(**kwargs)
 
-        if rule.scope == Scope.SINGLETON:
-            self.instances[context][cls] = instance
+        if rule.scope == SINGLETON:
+            self._instances[ctx_name][cls] = instance
 
         return instance
