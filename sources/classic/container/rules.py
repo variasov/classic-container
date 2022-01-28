@@ -28,12 +28,12 @@ class Rule:
         return self
 
 
-class FromContext:
+class FromGroup:
 
-    def __init__(self, context_name: str):
-        self.context_name = context_name
+    def __init__(self, group: str):
+        self.group = group
 
 
 # Aliases
 cls = Rule
-from_context = FromContext
+from_group = FromGroup

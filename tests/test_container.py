@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import pytest
 from classic.container import (
-    Container, ResolutionError, TRANSIENT, cls, from_context
+    Container, ResolutionError, TRANSIENT, cls, from_group
 )
 
 
@@ -99,7 +99,7 @@ def test_resolve_with_replacement():
     assert isinstance(instance, Implementation1)
 
 
-def test_resolve_replace_from_context():
+def test_resolve_replace_from_group():
     container = Container()
     container.register(Interface)
     container.register(Implementation1)
@@ -108,16 +108,16 @@ def test_resolve_replace_from_context():
 
     container.rules(
         cls(Interface).replace(Implementation1),
-        context='ctx1'
+        group='ctx1'
     )
 
     container.rules(
         cls(Interface).replace(Implementation2),
-        context='ctx2',
+        group='ctx2',
     )
 
     container.rules(
-        cls(Composition).init(impl=from_context('ctx1')),
+        cls(Composition).init(impl=from_group('ctx1')),
     )
 
     instance = container.resolve(Composition)

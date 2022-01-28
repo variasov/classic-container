@@ -2,7 +2,7 @@ import inspect
 from collections import defaultdict
 from typing import Any, Dict
 
-from .settings import Rule, FromContext
+from .rules import Rule, FromGroup
 from .constants import SINGLETON
 
 __all__ = ['Container', 'ResolutionError']
@@ -29,7 +29,7 @@ class Registration:
             if factory == cls:
                 return factory
 
-    def get_factory(self, rules: Rules, ctx_name: str):
+    def get_factory(self, rules: Rules, group: str):
         if self.target in rules:
             params = rules[self.target]
             if params.replacement:
@@ -37,7 +37,7 @@ class Registration:
                 if factory is None:
                     raise ResolutionError(
                         f"Can't resolve replacement {params.replacement} "
-                        f"for class {self.target} in context {ctx_name}"
+                        f"for class {self.target} in group {group}"
                     )
 
                 return factory
@@ -78,30 +78,30 @@ class Registrations:
         if factory is not None:
             registration.add_factory(factory)
 
-    def get_factory(self, cls, rules: Rules, ctx_name: str):
+    def get_factory(self, cls, rules: Rules, group: str):
         registration = self.get(cls)
         if registration is None:
             raise ResolutionError(f"Class {cls} don't registered in container")
 
-        return registration.get_factory(rules, ctx_name)
+        return registration.get_factory(rules, group)
 
 
 class Container:
 
     def __init__(self):
         self._registrations = Registrations()
-        self._contexts = {
+        self._rules = {
             'default': {},
         }
         self._instances = defaultdict(dict)
 
-    def rules(self, *new_rules: Rule, context: str = 'default'):
-        rules = self._contexts.get(context, {})
+    def rules(self, *new_rules: Rule, group: str = 'default'):
+        rules = self._rules.get(group, {})
         rules.update({
             rule.cls: rule
             for rule in new_rules
         })
-        self._contexts[context] = rules
+        self._rules[group] = rules
 
     @staticmethod
     def _get_interfaces_for_cls(target):
@@ -117,18 +117,18 @@ class Container:
                 for cls in self._get_interfaces_for_cls(target):
                     self._registrations.add(cls, target)
 
-    def resolve(self, cls, context='default'):
-        return self._get_instance(cls, context)
+    def resolve(self, cls, group='default'):
+        return self._get_instance(cls, group)
 
-    def _get_instance(self, cls, ctx_name):
-        if cls in self._instances[ctx_name]:
-            return self._instances[ctx_name][cls]
-        return self._create_instance(cls, ctx_name)
+    def _get_instance(self, cls, group):
+        if cls in self._instances[group]:
+            return self._instances[group][cls]
+        return self._create_instance(cls, group)
 
-    def _create_instance(self, cls, ctx_name):
-        rules = self._contexts[ctx_name]
+    def _create_instance(self, cls, group):
+        rules = self._rules[group]
 
-        factory = self._registrations.get_factory(cls, rules, ctx_name)
+        factory = self._registrations.get_factory(cls, rules, group)
         rule = rules.get(cls, Rule(cls))
         kwargs = {}
 
@@ -142,15 +142,15 @@ class Container:
 
             if parameter.name in rule.init_kwargs:
                 value = rule.init_kwargs[parameter.name]
-                if isinstance(value, FromContext):
+                if isinstance(value, FromGroup):
                     resolved_instance = self._get_instance(
-                        parameter.annotation, value.context_name,
+                        parameter.annotation, value.group,
                     )
                 else:
                     resolved_instance = value
             else:
                 resolved_instance = self._get_instance(
-                    parameter.annotation, ctx_name,
+                    parameter.annotation, group,
                 )
 
             kwargs[parameter.name] = resolved_instance
@@ -158,6 +158,6 @@ class Container:
         instance = factory(**kwargs)
 
         if rule.scope == SINGLETON:
-            self._instances[ctx_name][cls] = instance
+            self._instances[group][cls] = instance
 
         return instance
