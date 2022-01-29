@@ -3,7 +3,8 @@ from dataclasses import dataclass
 
 import pytest
 from classic.container import (
-    Container, ResolutionError, TRANSIENT, cls, from_group
+    Container, RegistrationError, ResolutionError,
+    TRANSIENT, cls, from_group
 )
 
 
@@ -31,8 +32,18 @@ class Composition:
         self.impl = impl
 
 
+class NextLevelComposition:
+
+    def __init__(self, obj: Composition):
+        self.obj = obj
+
+
 class SomeCls:
     pass
+
+
+def some_factory(obj: Interface) -> Composition:
+    return Composition(obj)
 
 
 @dataclass
@@ -44,6 +55,17 @@ class AnotherCls:
 class YetAnotherCls:
     some: SomeCls
     another: AnotherCls
+
+
+@pytest.mark.parametrize('obj', [
+    (1,),
+    (Implementation1(),),
+])
+def test_registration_error(obj):
+    container = Container()
+
+    with pytest.raises(RegistrationError):
+        container.register(obj)
 
 
 def test_simple_resolving():
@@ -69,8 +91,61 @@ def test_resolve_with_abc():
 
     instance = container.resolve(Interface)
 
-    assert instance is not None
     assert isinstance(instance, Implementation1)
+
+
+def test_function_resolve():
+    container = Container()
+    container.register(Implementation1)
+    container.register(some_factory)
+
+    instance = container.resolve(some_factory)
+
+    assert isinstance(instance, Composition)
+
+
+def test_function_as_dependency():
+    container = Container()
+    container.register(Implementation1, some_factory)
+
+    instance = container.resolve(Composition)
+
+    assert isinstance(instance, Composition)
+    assert isinstance(instance.impl, Implementation1)
+
+
+def test_factory_calling():
+    container = Container()
+    container.register(Implementation1)
+    container.register(some_factory)
+    container.register(Composition)
+
+    container.rules(
+        cls(Composition).replace(some_factory)
+    )
+
+    instance = container.resolve(Composition)
+
+    assert isinstance(instance, Composition)
+    assert isinstance(instance.impl, Implementation1)
+
+
+def test_factory_is_create_objects():
+    container = Container()
+    container.register(Implementation1)
+    container.register(some_factory)
+    container.register(Composition)
+    container.register(NextLevelComposition)
+
+    container.rules(
+        cls(Composition).replace(some_factory)
+    )
+
+    instance = container.resolve(NextLevelComposition)
+
+    assert isinstance(instance, NextLevelComposition)
+    assert isinstance(instance.obj, Composition)
+    assert isinstance(instance.obj.impl, Implementation1)
 
 
 def test_raise_when_many_implementations():
@@ -95,7 +170,6 @@ def test_resolve_with_replacement():
 
     instance = container.resolve(Interface)
 
-    assert instance is not None
     assert isinstance(instance, Implementation1)
 
 
@@ -122,7 +196,6 @@ def test_resolve_replace_from_group():
 
     instance = container.resolve(Composition)
 
-    assert instance is not None
     assert isinstance(instance, Composition)
     assert isinstance(instance.impl, Implementation1)
 

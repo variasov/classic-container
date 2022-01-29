@@ -1,14 +1,17 @@
 import inspect
 from collections import defaultdict
-from typing import Any, Dict
+from typing import Any, Dict, Type
 
 from .rules import Rule, FromGroup
 from .constants import SINGLETON
-
-__all__ = ['Container', 'ResolutionError']
+from .types import Factory, Target
 
 
 Rules = Dict[Any, Rule]
+
+
+class RegistrationError(BaseException):
+    pass
 
 
 class ResolutionError(BaseException):
@@ -17,19 +20,19 @@ class ResolutionError(BaseException):
 
 class Registration:
 
-    def __init__(self, target: Any):
+    def __init__(self, target: Target):
         self.target = target
         self._factories = []
 
-    def add_factory(self, factory):
+    def add_factory(self, factory: Factory):
         self._factories.append(factory)
 
-    def find_factory(self, cls):
+    def find_factory(self, cls: Factory):
         for factory in self._factories:
             if factory == cls:
                 return factory
 
-    def get_factory(self, rules: Rules, group: str):
+    def get_factory(self, rules: Rules, group: str) -> Factory:
         if self.target in rules:
             params = rules[self.target]
             if params.replacement:
@@ -41,6 +44,9 @@ class Registration:
                     )
 
                 return factory
+
+        if inspect.isfunction(self.target):
+            return self.target
 
         if not self._factories:
             raise ResolutionError(f'Class {self.target} do not have '
@@ -58,27 +64,27 @@ class Registrations:
     def __init__(self):
         self._registrations = {}
 
-    def get(self, target):
+    def get(self, target: Target) -> Registration:
         return self._registrations.get(target)
 
-    def create(self, target):
+    def create(self, target: Target) -> Registration:
         registration = Registration(target)
         self._registrations[target] = registration
         return registration
 
-    def get_or_create(self, target):
+    def get_or_create(self, target: Target) -> Registration:
         registration = self.get(target)
         if registration is None:
             registration = self.create(target)
 
         return registration
 
-    def add(self, cls, factory=None):
+    def add(self, cls: Target, factory=None):
         registration = self.get_or_create(cls)
         if factory is not None:
             registration.add_factory(factory)
 
-    def get_factory(self, cls, rules: Rules, group: str):
+    def get_factory(self, cls: Target, rules: Rules, group: str) -> Factory:
         registration = self.get(cls)
         if registration is None:
             raise ResolutionError(f"Class {cls} don't registered in container")
@@ -103,36 +109,67 @@ class Container:
         })
         self._rules[group] = rules
 
+        for rule in new_rules:
+            if rule.replacement:
+                registration = self._registrations.get_or_create(rule.cls)
+                registration.add_factory(rule.replacement)
+
     @staticmethod
-    def _get_interfaces_for_cls(target):
+    def _get_interfaces_for_cls(target: Type):
         for cls in target.__mro__:
             if cls != object:
                 yield cls
 
-    def register(self, *targets):
+    @staticmethod
+    def _factory_target(factory):
+        signature = inspect.signature(factory)
+        target = signature.return_annotation
+        if target == inspect.Parameter.empty:
+            raise RegistrationError()
+
+        return target
+
+    def register(self, *targets: Target):
         for target in targets:
-            if inspect.isabstract(target):
-                self._registrations.add(target)
-            else:
-                for cls in self._get_interfaces_for_cls(target):
+            if inspect.isfunction(target):
+
+                for cls in self._get_interfaces_for_cls(self._factory_target(target)):
                     self._registrations.add(cls, target)
 
-    def resolve(self, cls, group='default'):
+            elif inspect.isabstract(target):
+                self._registrations.add(target)
+
+            elif inspect.isclass(target):
+                for cls in self._get_interfaces_for_cls(target):
+                    self._registrations.add(cls, target)
+            else:
+                raise RegistrationError(
+                    f'Registration target must be class or function. '
+                    f'{target} is {type(target)}'
+                )
+
+    def resolve(self, cls: Type, group='default') -> Any:
         return self._get_instance(cls, group)
 
-    def _get_instance(self, cls, group):
+    def _get_instance(self, cls: Type, group: str) -> Any:
+        if inspect.isfunction(cls):
+            cls = self._factory_target(cls)
+
         if cls in self._instances[group]:
             return self._instances[group][cls]
         return self._create_instance(cls, group)
 
-    def _create_instance(self, cls, group):
+    def _create_instance(self, cls: Type, group: str) -> Any:
         rules = self._rules[group]
 
         factory = self._registrations.get_factory(cls, rules, group)
         rule = rules.get(cls, Rule(cls))
         kwargs = {}
 
-        signature = inspect.signature(cls)
+        if inspect.isfunction(cls):
+            return cls
+
+        signature = inspect.signature(factory)
         for parameter in signature.parameters.values():
             if parameter.annotation is inspect.Parameter.empty:
                 raise ResolutionError(

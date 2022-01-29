@@ -1,11 +1,12 @@
 from typing import Any
 
 from .constants import SINGLETON, SCOPES
+from .types import Target, Factory
 
 
 class Rule:
 
-    def __init__(self, cls: Any):
+    def __init__(self, cls: Target):
         self.cls = cls
         self.init_kwargs = {}
         self.replacement = None
@@ -15,7 +16,7 @@ class Rule:
         self.init_kwargs = kwargs
         return self
 
-    def replace(self, replacement: Any) -> 'Rule':
+    def replace(self, replacement: Factory) -> 'Rule':
         self.replacement = replacement
         return self
 
@@ -32,8 +33,3 @@ class FromGroup:
 
     def __init__(self, group: str):
         self.group = group
-
-
-# Aliases
-cls = Rule
-from_group = FromGroup
