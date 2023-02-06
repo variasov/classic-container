@@ -1,3 +1,7 @@
 from .constants import SINGLETON, TRANSIENT
-from .rules import Rule as cls, FromGroup as from_group
-from .container import Container, RegistrationError, ResolutionError
+from .exceptions import RegistrationError, ResolutionError
+from .settings import Settings, settings, init, group, scope, factory, instance
+from .container import Container
+
+
+container = Container()

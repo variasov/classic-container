@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import pytest
 from classic.container import (
     Container, RegistrationError, ResolutionError,
-    TRANSIENT, cls, from_group
+    TRANSIENT, factory, group, scope
 )
 
 
@@ -70,9 +70,7 @@ def test_registration_error(obj):
 
 def test_simple_resolving():
     container = Container()
-    container.register(SomeCls)
-    container.register(AnotherCls)
-    container.register(YetAnotherCls)
+    container.register(SomeCls, AnotherCls, YetAnotherCls)
 
     instance = container.resolve(YetAnotherCls)
 
@@ -86,7 +84,15 @@ def test_simple_resolving():
 
 def test_resolve_with_abc():
     container = Container()
-    container.register(Interface)
+    container.register(Interface, Implementation1)
+
+    instance = container.resolve(Interface)
+
+    assert isinstance(instance, Implementation1)
+
+
+def test_resolve_with_abc_implicit():
+    container = Container()
     container.register(Implementation1)
 
     instance = container.resolve(Interface)
@@ -94,35 +100,13 @@ def test_resolve_with_abc():
     assert isinstance(instance, Implementation1)
 
 
-def test_function_resolve():
-    container = Container()
-    container.register(Implementation1)
-    container.register(some_factory)
-
-    instance = container.resolve(some_factory)
-
-    assert isinstance(instance, Composition)
-
-
-def test_function_as_dependency():
+def test_factory_calling():
     container = Container()
     container.register(Implementation1, some_factory)
 
-    instance = container.resolve(Composition)
-
-    assert isinstance(instance, Composition)
-    assert isinstance(instance.impl, Implementation1)
-
-
-def test_factory_calling():
-    container = Container()
-    container.register(Implementation1)
-    container.register(some_factory)
-    container.register(Composition)
-
-    container.rules(
-        cls(Composition).replace(some_factory)
-    )
+    container.add_settings({
+        Composition: factory(some_factory),
+    })
 
     instance = container.resolve(Composition)
 
@@ -132,14 +116,11 @@ def test_factory_calling():
 
 def test_factory_is_create_objects():
     container = Container()
-    container.register(Implementation1)
-    container.register(some_factory)
-    container.register(Composition)
-    container.register(NextLevelComposition)
-
-    container.rules(
-        cls(Composition).replace(some_factory)
-    )
+    container.register(Implementation1, some_factory,
+                       Composition, NextLevelComposition)
+    container.add_settings({
+        Composition: factory(some_factory)
+    })
 
     instance = container.resolve(NextLevelComposition)
 
@@ -150,9 +131,7 @@ def test_factory_is_create_objects():
 
 def test_raise_when_many_implementations():
     container = Container()
-    container.register(Interface)
-    container.register(Implementation1)
-    container.register(Implementation2)
+    container.register(Interface, Implementation1, Implementation2)
 
     with pytest.raises(ResolutionError):
         container.resolve(Interface)
@@ -160,13 +139,11 @@ def test_raise_when_many_implementations():
 
 def test_resolve_with_replacement():
     container = Container()
-    container.register(Interface)
-    container.register(Implementation1)
-    container.register(Implementation2)
+    container.register(Interface, Implementation1, Implementation2)
 
-    container.rules(
-        cls(Interface).replace(Implementation1),
-    )
+    container.add_settings({
+        Interface: factory(Implementation1),
+    })
 
     instance = container.resolve(Interface)
 
@@ -175,24 +152,19 @@ def test_resolve_with_replacement():
 
 def test_resolve_replace_from_group():
     container = Container()
-    container.register(Interface)
-    container.register(Implementation1)
-    container.register(Implementation2)
-    container.register(Composition)
+    container.register(Interface, Implementation1,
+                       Implementation2, Composition)
+    container.add_settings({
+        Interface: factory(Implementation1),
+    }, group='ctx1')
 
-    container.rules(
-        cls(Interface).replace(Implementation1),
-        group='ctx1'
-    )
+    container.add_settings({
+        Interface: factory(Implementation2),
+    }, group='ctx2')
 
-    container.rules(
-        cls(Interface).replace(Implementation2),
-        group='ctx2',
-    )
-
-    container.rules(
-        cls(Composition).init(impl=from_group('ctx1')),
-    )
+    container.add_settings({
+        Composition: group('ctx1'),
+    })
 
     instance = container.resolve(Composition)
 
@@ -214,9 +186,9 @@ def test_transient_scope():
     container = Container()
     container.register(Implementation1)
 
-    container.rules(
-        cls(Implementation1).has_scope(TRANSIENT)
-    )
+    container.add_settings({
+        Implementation1: scope(TRANSIENT)
+    })
 
     instance = container.resolve(Implementation1)
     instance2 = container.resolve(Implementation1)
