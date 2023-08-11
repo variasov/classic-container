@@ -19,19 +19,19 @@ class Settings:
         self.group_ = group
         self.instance_ = instance
 
-    def init(self, **kwargs: Any) -> Settings:
+    def init(self, **kwargs: Any) -> 'Settings':
         self.init_ = kwargs
         return self
 
-    def factory(self, factory: Factory) -> Settings:
+    def factory(self, factory: Factory) -> 'Settings':
         self.factory_ = factory
         return self
 
-    def group(self, name: str) -> Settings:
+    def group(self, name: str) -> 'Settings':
         self.group_ = name
         return self
 
-    def scope(self, name: str) -> Settings:
+    def scope(self, name: str) -> 'Settings':
         assert name in SCOPES, (
             f'Scope name must be SINGLETON or TRANSIENT. Current is "{name}"'
         )
