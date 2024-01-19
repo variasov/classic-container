@@ -2,14 +2,14 @@ import inspect
 from types import ModuleType
 from typing import Any, Sequence, Tuple, Optional, Type
 
-from .types import Factory, Target
+from .types import Factory, Registerable
 
 
 def _is_submodule(submodule: ModuleType, module: ModuleType) -> bool:
     return submodule.__name__.startswith(module.__name__)
 
 
-def get_members(module: ModuleType) -> Tuple[Sequence[Target],
+def get_members(module: ModuleType) -> Tuple[Sequence[Registerable],
                                              Sequence[ModuleType]]:
     submodules = []
     targets = []

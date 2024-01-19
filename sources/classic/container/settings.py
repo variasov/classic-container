@@ -8,30 +8,47 @@ class Settings:
 
     def __init__(
         self, init: Dict[str, Any] = None, factory: Factory = None,
-        group: str = None, scope: str = None, instance: Any = None,
+        scope: str = None, instance: Any = None,
     ):
+        """
+
+        :param init:
+        :param factory:
+        :param scope:
+        :param instance:
+        """
         assert scope is None or scope in SCOPES, \
             f'Scope name must be SINGLETON or TRANSIENT. Current is "{scope}"'
 
         self.scope_ = scope or SINGLETON
         self.init_ = init or {}
         self.factory_ = factory
-        self.group_ = group
         self.instance_ = instance
 
     def init(self, **kwargs: Any) -> 'Settings':
+        """
+
+        :param kwargs:
+        :return:
+        """
         self.init_ = kwargs
         return self
 
     def factory(self, factory: Factory) -> 'Settings':
+        """
+
+        :param factory:
+        :return:
+        """
         self.factory_ = factory
         return self
 
-    def group(self, name: str) -> 'Settings':
-        self.group_ = name
-        return self
-
     def scope(self, name: str) -> 'Settings':
+        """
+
+        :param name:
+        :return:
+        """
         assert name in SCOPES, (
             f'Scope name must be SINGLETON or TRANSIENT. Current is "{name}"'
         )
@@ -49,10 +66,6 @@ def init(**kwargs: Any) -> Settings:
 
 def factory(factory: Factory) -> Settings:
     return Settings(factory=factory)
-
-
-def group(name: str) -> Settings:
-    return Settings(group=name)
 
 
 def scope(name: str) -> Settings:

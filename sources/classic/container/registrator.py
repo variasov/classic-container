@@ -1,10 +1,11 @@
 from abc import ABC
+import threading
 from itertools import chain
 import inspect
 from types import ModuleType
 from typing import Optional, Type
 
-from .types import Factory, Target, Registry, ModuleOrTarget, AnyFunc
+from .types import Factory, Registerable, Registry, ModuleOrTarget, AnyFunc
 from .exceptions import RegistrationError
 
 from . import utils
@@ -12,16 +13,27 @@ from . import utils
 
 class Registrator:
 
-    def __init__(self, registry: Registry):
+    def __init__(self, registry: Registry, lock: threading.Lock):
+        """
+
+        :param registry:
+        """
         self._registry = registry
+        self._lock = lock
 
     def __call__(self, *targets: ModuleOrTarget) -> None:
-        for target in targets:
-            if self._register(target) is None:
-                raise RegistrationError(
-                    f'Registration target must be class, function or module, '
-                    f'{target} is {type(target)}'
-                )
+        """
+
+        :param targets:
+        :return:
+        """
+        with self._lock:
+            for target in targets:
+                if self._register(target) is None:
+                    raise RegistrationError(
+                        f'Registration target must be class, '
+                        f'function or module, {target} is {type(target)}'
+                    )
 
     def _register(self, target: ModuleOrTarget) -> Optional[str]:
         result = None
@@ -64,7 +76,7 @@ class Registrator:
         for target in chain(targets, submodules):
             self._register(target)
 
-    def _add_entry(self, cls: Target, factory: Optional[Factory] = None):
+    def _add_entry(self, cls: Registerable, factory: Optional[Factory] = None):
         factories = self._registry[cls]
         if factory is not None and factory not in factories:
             factories.append(factory)

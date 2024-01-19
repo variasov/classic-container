@@ -1,32 +1,40 @@
 import inspect
-from collections import defaultdict
+import threading
 from typing import Any, Dict, Callable
 
 from .exceptions import ResolutionError
 from .constants import SINGLETON, SIMPLE_TYPES
 from .settings import Settings, empty_settings
-from .types import (
-    Factory, Target, Registry,
-    SettingsRegistry, InstancesRegistry,
-)
+from .types import Factory, Target, Registry, InstancesRegistry
 
 
 class Resolver:
     _instances: InstancesRegistry
 
-    def __init__(self, registry: Registry, settings: SettingsRegistry):
+    def __init__(self, registry: Registry, settings, lock: threading.Lock):
+        """
+
+        :param registry:
+        :param settings:
+        """
         self._registry = registry
         self._settings = settings
-        self._instances = defaultdict(dict)
+        self._instances = dict()
+        self._lock = lock
 
-    def __call__(self, cls: Target, group: str = 'default') -> Any:
-        return self._get_instance(cls, group)
+    def __call__(self, cls: Target) -> Any:
+        """
 
-    def _get_instance(self, cls: Target, group: str) -> Any:
-        if cls in self._instances[group]:
-            return self._instances[group][cls]
-        settings = self._settings[group].get(cls, empty_settings)
-        return self._create_instance(cls, settings.group_ or group)
+        :param cls:
+        :return:
+        """
+        with self._lock:
+            return self._get_instance(cls)
+
+    def _get_instance(self, cls: Target) -> Any:
+        if cls in self._instances:
+            return self._instances[cls]
+        return self._create_instance(cls)
 
     def _get_factory_for(self, cls: Target) -> Factory:
         factories = self._registry[cls]
@@ -48,32 +56,31 @@ class Resolver:
 
         return factories[0]
 
-    def _call_factory(self, factory: Factory, group: str) -> Any:
-        settings = self._settings[group].get(factory, empty_settings)
+    def _call_factory(self, factory: Factory) -> Any:
+        settings = self._settings.get(factory, empty_settings)
         factory = settings.factory_ or factory
-        kwargs = self._resolve_kwargs_for_factory(factory, settings, group)
+        kwargs = self._resolve_kwargs_for_factory(factory, settings)
 
         try:
             return factory(**kwargs)
         except TypeError as exc:
             raise ResolutionError(f'Call of {factory} failed with {exc}')
 
-    def _create_instance(self, cls: Target, group: str) -> Any:
-        settings = self._settings[group].get(cls, empty_settings)
+    def _create_instance(self, cls: Target) -> Any:
+        settings = self._settings.get(cls, empty_settings)
         if settings.instance_:
             return settings.instance_
 
         factory = settings.factory_ or self._get_factory_for(cls)
-        instance = self._call_factory(factory, group)
+        instance = self._call_factory(factory)
 
         if instance and settings.scope_ == SINGLETON:
-            self._instances[group][cls] = instance
+            self._instances[cls] = instance
 
         return instance
 
     def _resolve_kwargs_for_factory(
-        self, factory: Factory,
-        settings: Settings, group: str
+        self, factory: Factory, settings: Settings,
     ) -> Dict[str, Any]:
         kwargs = {}
 
@@ -95,7 +102,7 @@ class Resolver:
             ):
                 continue
 
-            instance = self._get_instance(parameter.annotation, group)
+            instance = self._get_instance(parameter.annotation)
             if instance is not None:
                 kwargs[parameter.name] = instance
 
