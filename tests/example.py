@@ -48,3 +48,4 @@ class AnotherCls:
 class YetAnotherCls:
     some: SomeCls
     another: AnotherCls
+

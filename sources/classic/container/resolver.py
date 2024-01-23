@@ -9,14 +9,18 @@ from .types import Factory, Target, Registry, InstancesRegistry
 
 
 class Resolver:
+    """
+    Класс производит разрешение зависимостей компонентов приложеия.
+
+    Объект этого класса нужен для разрешение зависимостей в контейнере
+    компонентов приложения. Предпологается что этот объект инстанцируется
+    контейнером и используется только "под капотом".
+    Выглядит как метод resolve у контейнера.
+    """
+
     _instances: InstancesRegistry
 
-    def __init__(self, registry: Registry, settings, lock: threading.Lock):
-        """
-
-        :param registry:
-        :param settings:
-        """
+    def __init__(self, registry: Registry, settings, lock: threading.RLock):
         self._registry = registry
         self._settings = settings
         self._instances = dict()
@@ -24,9 +28,12 @@ class Resolver:
 
     def __call__(self, cls: Target) -> Any:
         """
+        При обращении разрешает зависимости, используя указанную реализацию,
+        создает и вазвращает инстанс класса.
 
-        :param cls:
-        :return:
+        Может принимать в себя абстрактный класс или класс.
+
+
         """
         with self._lock:
             return self._get_instance(cls)
@@ -58,7 +65,6 @@ class Resolver:
 
     def _call_factory(self, factory: Factory) -> Any:
         settings = self._settings.get(factory, empty_settings)
-        factory = settings.factory_ or factory
         kwargs = self._resolve_kwargs_for_factory(factory, settings)
 
         try:

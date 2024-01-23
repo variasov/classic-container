@@ -1,3 +1,5 @@
+from unittest.mock import Mock
+
 import pytest
 from classic.container import (
     Container, RegistrationError, ResolutionError,
@@ -24,27 +26,44 @@ def test_registration_error(obj):
         container.register(obj)
 
 
+def check_class_resolve(container):
+
+    resolved = container.resolve(YetAnotherCls)
+
+    assert resolved is not None
+    assert isinstance(resolved, YetAnotherCls)
+    assert isinstance(resolved.some, SomeCls)
+    assert isinstance(resolved.another, AnotherCls)
+    assert isinstance(resolved.another.some, SomeCls)
+    assert resolved.some is resolved.another.some
+
+
+def check_resolve_impl(container):
+    resolved = container.resolve(Interface)
+
+    assert isinstance(resolved, Implementation1)
+
+
+def check_next_level_composition_resolve(container):
+    resolved = container.resolve(NextLevelComposition)
+
+    assert isinstance(resolved, NextLevelComposition)
+    assert isinstance(resolved.obj, Composition)
+    assert isinstance(resolved.obj.impl, Implementation1)
+
+
 def test_simple_resolving():
     container = Container()
     container.register(SomeCls, AnotherCls, YetAnotherCls)
 
-    instance = container.resolve(YetAnotherCls)
-
-    assert instance is not None
-    assert isinstance(instance, YetAnotherCls)
-    assert isinstance(instance.some, SomeCls)
-    assert isinstance(instance.another, AnotherCls)
-    assert isinstance(instance.another.some, SomeCls)
-    assert instance.some is instance.another.some
+    check_class_resolve(container)
 
 
 def test_resolve_with_abc():
     container = Container()
     container.register(Interface, Implementation1)
 
-    instance = container.resolve(Interface)
-
-    assert isinstance(instance, Implementation1)
+    check_resolve_impl(container)
 
 
 def test_resolve_without_implementation():
@@ -59,13 +78,10 @@ def test_resolve_with_abc_implicit():
     container = Container()
     container.register(Implementation1)
 
-    instance = container.resolve(Interface)
-
-    assert isinstance(instance, Implementation1)
+    check_resolve_impl(container)
 
 
-# регистарция модуля
-def test_resolve_model1():
+def test_resolve_module_1():
     container = Container()
     container.register(example)
 
@@ -74,40 +90,26 @@ def test_resolve_model1():
         Composition: factory(composition_factory)
     })
 
-    instance = container.resolve(NextLevelComposition)
-
-    assert isinstance(instance, NextLevelComposition)
-    assert isinstance(instance.obj, Composition)
-    assert isinstance(instance.obj.impl, Implementation1)
+    check_next_level_composition_resolve(container)
 
 
-def test_resolve_model2():
+def test_resolve_module_2():
     container = Container()
     container.register(example)
 
-    instance = container.resolve(YetAnotherCls)
-
-    assert instance is not None
-    assert isinstance(instance, YetAnotherCls)
-    assert isinstance(instance.some, SomeCls)
-    assert isinstance(instance.another, AnotherCls)
-    assert isinstance(instance.another.some, SomeCls)
-    assert instance.some is instance.another.some
+    check_class_resolve(container=container)
 
 
-# проверить instance
 def test_resolve_instance():
     container = Container()
     implementation = Implementation1()
-    composition = Composition(implementation)
 
     container.add_settings({
-        Composition: instance(composition),
+        Implementation1: instance(implementation),
     })
-    composition_instance = container.resolve(Composition)
+    resolved = container.resolve(Implementation1)
 
-    assert isinstance(composition_instance, Composition)
-    assert isinstance(composition_instance.impl, Implementation1)
+    assert resolved is implementation
 
 
 def test_factory_calling():
@@ -118,10 +120,10 @@ def test_factory_calling():
         Composition: factory(composition_factory),
     })
 
-    instance = container.resolve(Composition)
+    resolved = container.resolve(Composition)
 
-    assert isinstance(instance, Composition)
-    assert isinstance(instance.impl, Implementation1)
+    assert isinstance(resolved, Composition)
+    assert isinstance(resolved.impl, Implementation1)
 
 
 def test_factory_is_create_objects():
@@ -132,13 +134,21 @@ def test_factory_is_create_objects():
         Composition: factory(composition_factory)
     })
 
-    instance = container.resolve(NextLevelComposition)
+    check_next_level_composition_resolve(container)
 
-    assert isinstance(instance, NextLevelComposition)
-    assert isinstance(instance.obj, Composition)
-    assert isinstance(instance.obj.impl, Implementation1)
 
-# проверить init в настройка контейнера, подмешивает как есть
+def test_resolve_init():
+    container = Container()
+    impl = Implementation1()
+
+    container.add_settings({
+        Composition: init(impl=impl),
+    })
+    resolved = container.resolve(Composition)
+
+    assert isinstance(resolved, Composition)
+    assert resolved.impl is impl
+
 
 def test_raise_when_many_implementations():
     container = Container()
@@ -156,19 +166,17 @@ def test_resolve_with_replacement():
         Interface: factory(Implementation1),
     })
 
-    instance = container.resolve(Interface)
-
-    assert isinstance(instance, Implementation1)
+    check_resolve_impl(container)
 
 
 def test_singleton_scope():
     container = Container()
     container.register(Implementation1)
 
-    instance = container.resolve(Implementation1)
-    instance2 = container.resolve(Implementation1)
+    resolved_1 = container.resolve(Implementation1)
+    resolved_2 = container.resolve(Implementation1)
 
-    assert instance is instance2
+    assert resolved_1 is resolved_2
 
 
 def test_transient_scope():
@@ -179,7 +187,21 @@ def test_transient_scope():
         Implementation1: scope(TRANSIENT)
     })
 
-    instance = container.resolve(Implementation1)
-    instance2 = container.resolve(Implementation1)
+    resolved_1 = container.resolve(Implementation1)
+    resolved_2 = container.resolve(Implementation1)
 
-    assert instance is not instance2
+    assert resolved_1 is not resolved_2
+
+
+def test_lock():
+    container = Container()
+    impl = Implementation1()
+    impl_factory = Mock(return_value=impl)
+
+    container.add_settings({
+        Implementation1: factory(impl_factory)
+    })
+    resolved = container.resolve(Implementation1)
+
+    impl_factory.assert_called_once()
+    assert resolved is impl

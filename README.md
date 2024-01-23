@@ -1,26 +1,43 @@
-# Classic Components
+# Classic Container
 
-This package provides decorator for creating components with 
-explicitly defined dependencies for Dependency Injection.
-Decorator marks class as component and, optionally, generates constructor from 
-type annotations.
+Библиотека представляет реализацию IoC контейнера.
+## Введение
 
-Part of project "Classic".
+Библиотека призвана ускорить работу над приложением упрощая запуск приложения и 
+разрешение зависимостей.
 
-Usage:
+При отсутствии множественной реализации интерфейсов ручное разрешение 
+зависимостей крайне монотонное и однообразное действие. 
 
+Пример простого приложения:
 ```python
-from classic.components import component
+from abc import ABC
+
+# Интерфейс репозитория
+class Interface(ABC):
+    pass
 
 
-@component
+# Реализация репозитория
+class SomeRepository(Interface):
+    pass
+
+
+# Код приложения 
 class SomeService:
-    prop: int
     
-    def action(self):
-        print(self.prop)
+    def __init__(self, repository: Interface):
+        self.repository = repository
+    
+ 
+# Контроллер   
+class SomeController:
+    
+    def __init__(self, service: SomeService):
+        self.service = service
 
-
-service = SomeService(prop=1)
-service.action()  # prints 1
 ```
+
+Композит для этого приложения при явном описании 
+
+
