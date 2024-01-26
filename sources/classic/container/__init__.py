@@ -8,4 +8,7 @@ from .container import Container
 # чтобы не инстанцировать каждый раз в ручную.
 # Конечно, вы можете создавать свои инстансы контейнера, когда вам нужно.
 
-container = Container()
+_default_container = Container()
+register = _default_container.register
+resolve = _default_container.resolve
+

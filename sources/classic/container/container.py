@@ -1,11 +1,11 @@
 import threading
-from typing import Dict, Type
+from typing import Dict, Type, Callable, Any
 from collections import defaultdict
 
 from .registrator import Registrator
 from .resolver import Resolver
 from .settings import Settings
-from .types import Registry
+from .types import Registry, Target
 
 
 class Container:
@@ -18,7 +18,9 @@ class Container:
     указанного интерфейс с разрешенными зависимостями.
     """
 
-    registry: Registry
+    _registry: Registry
+    register: Callable[[...], None]
+    resolve: Resolver
 
     def __init__(self):
         self._registry = defaultdict(list)
@@ -36,3 +38,8 @@ class Container:
         """
         self._settings.update(settings)
         self.register(*settings.keys())
+
+    def reset(self):
+        with self._lock:
+            self._settings = dict()
+            self.resolve.reset()

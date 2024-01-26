@@ -205,3 +205,20 @@ def test_lock():
 
     impl_factory.assert_called_once()
     assert resolved is impl
+
+def test_reset_resolved_instances():
+    container = Container()
+    container.register(example)
+    implementation = Implementation1()
+
+    container.add_settings({
+        Implementation1: instance(implementation),
+    })
+    container.resolve(Implementation1)
+    result_1 = container.resolve(YetAnotherCls)
+    container.reset()
+
+    result_2 = container.resolve(YetAnotherCls)
+    assert result_1 is not result_2
+    with pytest.raises(ResolutionError):
+        container.resolve(Interface)
