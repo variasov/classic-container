@@ -1,11 +1,11 @@
 import threading
-from typing import Dict, Type, Callable, Any
+from typing import Dict, Type
 from collections import defaultdict
 
 from .registrator import Registrator
 from .resolver import Resolver
 from .settings import Settings
-from .types import Registry, Target
+from .types import Registry, RegisterCallable
 
 
 class Container:
@@ -19,7 +19,7 @@ class Container:
     """
 
     _registry: Registry
-    register: Callable[[...], None]
+    register: RegisterCallable
     resolve: Resolver
 
     def __init__(self):

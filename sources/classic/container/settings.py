@@ -18,21 +18,18 @@ class Settings:
         assert scope is None or scope in SCOPES, \
             f'Scope name must be SINGLETON or TRANSIENT. Current is "{scope}"'
 
+        assert instance is None or (
+            not factory and
+            not instance is None and
+            not init and
+            (scope is None or scope == 'SINGLETONE')
+        ), (f'Container can use only instance or '
+            f'factory, init and scope must be SINGLETON')
+
         self.scope_ = scope or SINGLETON
         self.init_ = init or {}
         self.factory_ = factory
         self.instance_ = instance
-
-        assert self.instance_ is None or (
-            not self.factory_ and
-            not instance is None and
-            not self.init_
-        ), f'test'
-        # assert instance is None or (
-        #     len(self.init_) == 0 and self.factory_ is None
-        # ), f'Container can use only instance or factory, init'
-        assert instance is None or self.scope_ == SINGLETON, \
-            f'When used instance scope can be only SINGLETON'
 
     def init(self, **kwargs: Any) -> 'Settings':
         """
@@ -40,7 +37,7 @@ class Settings:
         при построении объекта. Самое частое использование - передача
         простых объектов (чисел, строк).
 
-        >>> from classic.container import container, Settings, init
+        >>> from classic.container import Container, Settings, init
         ...
         ... class SomeClass:
         ...     def __init__(self, some_value: int):
@@ -50,6 +47,8 @@ class Settings:
         ...         # библиотека оставляет возможность
         ...         # указать параметр через init
         ...         self.some_value = some_value
+        ...
+        ... container = Container()
         ...
         ... container.register(SomeClass)
         ...
@@ -64,10 +63,12 @@ class Settings:
         ... })
         ...
         ... # А можно через алиас
-        ... container.add_settings({
-        ...     SomeClass: init(some_value=2)
-        ... })
+        ... container.add_settings({SomeClass: init(some_value=2)})
         """
+
+        assert self.instance_ is None, (
+            f'Container can use only instance or init'
+        )
         self.init_ = kwargs
         return self
 
@@ -78,9 +79,9 @@ class Settings:
         инстанс любого объекта, и имеющий аннотацию типов.
 
         >>> from abc import ABC, abstractmethod
-        ... from classic.container import container, Settings, factory
+        ... from classic.container import Container, Settings, factory
         ...
-        ... class Interface(ABC)
+        ... class Interface(ABC):
         ...
         ...     @abstractmethod
         ...     def method(self): ...
@@ -98,9 +99,9 @@ class Settings:
         ... def composition_factory(obj: Interface) -> SomeClass:
         ...     return SomeClass(obj)
         ...
-        ... container.register(
-        ...     Interface, Implementation, SomeClass, composition_factory
-        ... )
+        ... container = Container()
+        ...
+        ... container.register(Implementation, SomeClass, composition_factory)
         ...
         ... # Длинный способ через конструктор
         ... container.add_settings({
@@ -113,11 +114,12 @@ class Settings:
         ... })
         ...
         ... # А можно через алиас
-        ... container.add_settings({
-        ...     SomeClass: factory(composition_factory)
-        ... })
+        ... container.add_settings({SomeClass: factory(composition_factory)})
         """
 
+        assert self.instance_ is None, (
+            f'Container can use only instance or factory'
+        )
         self.factory_ = factory
         return self
 
@@ -133,11 +135,103 @@ class Settings:
         При TRANSIENT контейнер будет создавать новый объект при каждом resolve.
 
         Для каждого класса настройка scope добавляется отдельно!
+
+        >>> from abc import ABC, abstractmethod
+        ... from classic.container import Container, Settings, TRANSIENT, scope
+        ...
+        ... class Interface(ABC):
+        ...
+        ...     @abstractmethod
+        ...     def method(self): ...
+        ...
+        ... class Implementation(Interface):
+        ...
+        ...     def method(self):
+        ...         return 1
+        ...
+        ... container = Container()
+        ...
+        ... container.register(Interface, Implementation)
+        ...
+        ... # Длинный способ через конструктор
+        ... container.add_settings({Implementation: Settings(scope=TRANSIENT)})
+        ...
+        ... # Вызов "цепочкой"
+        ... container.add_settings({
+        ...     Implementation: Settings().scope(name=TRANSIENT)
+        ... })
+        ...
+        ... # А можно через алиас
+        ... container.add_settings({Implementation: scope(TRANSIENT)})
         """
         assert name in SCOPES, (
             f'Scope name must be SINGLETON or TRANSIENT. Current is "{name}"'
         )
+        assert self.instance_ is None or name == 'SINGLETON', (
+            f'Scope name must be SINGLETON then used instance'
+        )
         self.scope_ = name
+        return self
+
+    def instance(self, instance: Any) -> 'Settings':
+        """
+        Настройка позволяет подать готовый инстанс класса.
+
+        Подразумевается основное использование при потребности подачи
+        в разные классы готовых объектов, но настроенных по-разному.
+
+        Класс сделан для удобства, тоже самое можно сделать через фабрики.
+
+        >>> from abc import ABC, abstractmethod
+        ... from classic.container import Container, Settings, instance
+        ...
+        ... class Interface(ABC):
+        ...     some_value: int
+        ...
+        ...     @abstractmethod
+        ...     def method(self): ...
+        ...
+        ... class Implementation(Interface):
+        ...
+        ...     def __init__(self, some_value):
+        ...         self.some_value = some_value
+        ...
+        ...     def method(self):
+        ...         return 1
+        ...
+        ... class SomeClass:
+        ...
+        ...     def __init__(self, impl: Interface):
+        ...         self.impl = impl
+        ...
+        ... container = Container()
+        ...
+        ... container.register(
+        ...     Interface, Implementation, SomeClass,
+        ... )
+        ...
+        ... impl = Implementation(1)
+        ...
+        ... # Длинный способ через конструктор
+        ... container.add_settings({
+        ...     SomeClass: Settings(instance=impl)
+        ... })
+        ...
+        ... # Вызов "цепочкой"
+        ... container.add_settings({
+        ...     SomeClass: Settings().instance(instance=impl)
+        ... })
+        ...
+        ... # А можно через алиас
+        ... container.add_settings({SomeClass: instance(impl)})
+        """
+        assert (
+            not self.init_ and
+            not self.factory_ and
+            self.scope_ == 'SINGLETON'
+        ), (f'Container can use only instance or '
+            f'factory, init and scope must be SINGLETON')
+        self.instance_ = instance
         return self
 
 
@@ -173,6 +267,6 @@ def scope(name: str) -> Settings:
 def instance(obj: Any) -> Settings:
     """
     Обертка для создания настроек с готовым объектом при разрешении
-    зависимостей компонентов системы.
+    зависимостей.
     """
     return Settings(instance=obj)
