@@ -1,6 +1,6 @@
 import inspect
 from types import ModuleType
-from typing import Any, Sequence, Tuple, Optional, Type
+from typing import Sequence, Tuple
 
 from .types import Factory, Registerable
 
@@ -25,13 +25,13 @@ def get_members(module: ModuleType) -> Tuple[Sequence[Registerable],
     return targets, submodules
 
 
-def get_interfaces_for_cls(target: Type):
+def get_interfaces_for_cls(target: type):
     for cls in target.__mro__:
         if cls != object:
             yield cls
 
 
-def get_factory_result(factory: Factory) -> Optional[Type]:
+def get_factory_result(factory: Factory) -> type | None:
     if inspect.isclass(factory):
         return factory
 
@@ -43,5 +43,5 @@ def get_factory_result(factory: Factory) -> Optional[Type]:
     return result
 
 
-def is_factory(obj: Any) -> bool:
+def is_factory(obj: object) -> bool:
     return inspect.isclass(obj) or inspect.isfunction(obj)

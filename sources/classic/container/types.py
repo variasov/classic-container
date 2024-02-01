@@ -1,19 +1,23 @@
 from abc import ABC
 from types import ModuleType
-from typing import Any, Callable, Union, Type, Dict, List, Protocol
+from typing import Protocol, TypeAlias
 
 
 class RegisterCallable(Protocol):
-    def __call__(self, *args: Any):
+
+    def __call__(self, *args: object) -> None:
         pass
 
 
-Factory = Union[Type[object], Callable[[Any], Any]]
-Target = Union[Type[object], ABC]
-Registerable = Union[Factory, Type[object], ABC]
-Registry = Dict[Target, List[Factory]]
+class AnyFunc(Protocol):
 
-ModuleOrTarget = Union[Target, ModuleType]
-AnyFunc = Callable[[Any], Any]
+    def __call__(self, *args: object, **kwargs: object) -> object:
+        pass
 
-InstancesRegistry = Dict[str, Dict[Type, Any]]
+
+Factory: TypeAlias = type | AnyFunc
+Target: TypeAlias = type | ABC
+Registerable: TypeAlias = Factory | type | ABC
+Registry: TypeAlias = dict[Target, list[Factory]]
+ModuleOrTarget: TypeAlias = Target | ModuleType
+InstancesRegistry: TypeAlias = dict[Target, object]

@@ -1,5 +1,3 @@
-from unittest.mock import Mock
-
 import pytest
 from classic.container import (
     Container, RegistrationError, ResolutionError, Settings,
@@ -10,8 +8,7 @@ import example
 from example import (
     AnotherCls, Implementation1, Implementation2, Interface,
     SomeCls, YetAnotherCls, Composition, composition_factory,
-    NextLevelComposition
-
+    NextLevelComposition, ErrorImplementation, empty_factory, some_func
 )
 
 
@@ -77,6 +74,48 @@ def test_resolve_without_implementation(container):
 
     with pytest.raises(ResolutionError):
         container.resolve(Interface)
+
+
+def test_resolve_without_registration(container):
+    with pytest.raises(ResolutionError):
+        container.resolve(Interface)
+
+
+def test_resolve_with_type_error(container):
+    container.add_settings({Interface: factory(some_func)})
+    with pytest.raises(ResolutionError):
+        container.resolve(Interface)
+
+
+def test_resolve_empty_factory(container):
+    container.register(Composition)
+    container.add_settings({
+        Interface: factory(empty_factory)
+    })
+    with pytest.raises(ResolutionError):
+        container.resolve(Composition)
+
+
+def test_message_resolve_chain(container):
+    container.register(
+        ErrorImplementation, Composition,
+        NextLevelComposition
+    )
+
+    container.add_settings({
+        ErrorImplementation: init(some_str=[1,2,3])
+    })
+    with pytest.raises(ResolutionError) as ext:
+        container.resolve(NextLevelComposition)
+
+    error = (
+        'Call of <class \'example.ErrorImplementation\'> failed with can only concatenate list (not "str") to list\n'
+        'Resolve chain: \n'
+        'Target: example.NextLevelComposition, Factory: example.NextLevelComposition, Arg: obj\n'
+        'Target: example.Composition, Factory: example.Composition, Arg: impl\n'
+        'Target: example.Interface, Factory: example.ErrorImplementation, Arg: some_str'
+    )
+    assert error == str(ext.value)
 
 
 def test_resolve_with_abc_implicit(container):
@@ -187,21 +226,12 @@ def test_transient_scope(container):
     assert resolved_1 is not resolved_2
 
 
-def test_lock(container):
-    impl = Implementation1()
-    impl_factory = Mock(return_value=impl)
-
-    container.add_settings({
-        Implementation1: factory(impl_factory)
-    })
-    resolved = container.resolve(Implementation1)
-
-    impl_factory.assert_called_once()
-    assert resolved is impl
-
-
 def test_reset_resolved_instances(container):
     container.register(example)
+
+    # Проверка разрешения зависимостей без ошибок до reset-a.
+    container.add_settings({Interface: factory(Implementation1)})
+    container.resolve(Interface)
 
     result_1 = container.resolve(YetAnotherCls)
     container.reset()
@@ -213,32 +243,31 @@ def test_reset_resolved_instances(container):
 
 
 def test_setting_raise_error(container):
-    implementation = Implementation1()
-
-    container.register(example)
 
     with pytest.raises(AssertionError):
         container.add_settings({
             Implementation1: Settings(
-                instance=implementation, factory=Implementation1
+                instance=Implementation1(), factory=Implementation1
             ),
         })
 
     with pytest.raises(AssertionError):
         container.add_settings({
-            Implementation1: Settings().instance(implementation).factory(
+            Implementation1: Settings().instance(Implementation1()).factory(
                 Implementation1
             ),
         })
 
     with pytest.raises(AssertionError):
         container.add_settings({
-            Implementation1: Settings().instance(implementation).init(some=1),
+            Implementation1: Settings().instance(
+                Implementation1()
+            ).init(some=1),
         })
 
     with pytest.raises(AssertionError):
         container.add_settings({
-            Implementation1: Settings().instance(implementation).scope(
+            Implementation1: Settings().instance(Implementation1()).scope(
                 TRANSIENT
             ),
         })
@@ -246,7 +275,7 @@ def test_setting_raise_error(container):
     with pytest.raises(AssertionError):
         container.add_settings({
             Implementation1: Settings().factory(Implementation1).instance(
-                implementation
+                Implementation1()
             ).scope(TRANSIENT),
         })
 

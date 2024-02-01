@@ -1,5 +1,3 @@
-from typing import Any, Dict
-
 from .constants import SINGLETON, SCOPES
 from .types import Factory
 
@@ -12,8 +10,8 @@ class Settings:
     при разрешении зависимостей.
     """
     def __init__(
-        self, init: Dict[str, Any] = None, factory: Factory = None,
-        scope: str = None, instance: Any = None,
+        self, init: dict[str, object] = None, factory: Factory = None,
+        scope: str = None, instance: object = None,
     ):
         assert scope is None or scope in SCOPES, \
             f'Scope name must be SINGLETON or TRANSIENT. Current is "{scope}"'
@@ -31,7 +29,7 @@ class Settings:
         self.factory_ = factory
         self.instance_ = instance
 
-    def init(self, **kwargs: Any) -> 'Settings':
+    def init(self, **kwargs: object) -> 'Settings':
         """
         Позволяет установить значения аргументов для фабрики
         при построении объекта. Самое частое использование - передача
@@ -173,7 +171,7 @@ class Settings:
         self.scope_ = name
         return self
 
-    def instance(self, instance: Any) -> 'Settings':
+    def instance(self, instance: object) -> 'Settings':
         """
         Настройка позволяет подать готовый инстанс класса.
 
@@ -239,7 +237,7 @@ settings = Settings
 empty_settings = Settings()
 
 
-def init(**kwargs: Any) -> Settings:
+def init(**kwargs: object) -> Settings:
     """
     Обертка для создания настроек компонентов с параметрами.
     Самое частое использование - передача простых объектов (чисел, строк).
@@ -264,7 +262,7 @@ def scope(name: str) -> Settings:
     return Settings(scope=name)
 
 
-def instance(obj: Any) -> Settings:
+def instance(obj: object) -> Settings:
     """
     Обертка для создания настроек с готовым объектом при разрешении
     зависимостей.

@@ -1,5 +1,4 @@
 import threading
-from typing import Dict, Type
 from collections import defaultdict
 
 from .registrator import Registrator
@@ -30,7 +29,7 @@ class Container:
         self.register = Registrator(self._registry, self._lock)
         self.resolve = Resolver(self._registry, self._settings, self._lock)
 
-    def add_settings(self, settings: Dict[Type[object], Settings]):
+    def add_settings(self, settings: dict[type, Settings]):
         """
         Добавляет или обновляет настройки контейнера.
 
