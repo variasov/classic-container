@@ -306,3 +306,24 @@ def test_chain_of_responsibility(settings):
         Implementation1
     ).init(some=1).scope(name=TRANSIENT)
     assert settings is many_settings
+
+
+@pytest.mark.skip
+def test_customize_settings_on_resolve(container):
+    container.register(Composition)
+    container.add_settings({Interface: factory(Implementation1)})
+
+    before_custom = container.resolve(Composition)
+    custom = container.resolve(
+        Composition,
+        settings={Interface: factory(Implementation2)}
+    )
+    after_custom = container.resolve(Composition)
+
+    assert custom is not before_custom and custom is not after_custom
+    assert before_custom is after_custom
+    assert isinstance(custom.impl, Implementation2)
+    assert isinstance(before_custom.impl, Implementation1)
+    assert isinstance(after_custom.impl, Implementation1)
+
+

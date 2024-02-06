@@ -46,10 +46,6 @@ class NextLevelComposition:
         self.obj = obj
 
 
-class SomeCls:
-    pass
-
-
 def empty_factory() -> object:
     return None
 
@@ -60,6 +56,10 @@ def composition_factory(obj: Interface) -> Composition:
 
 def some_func(some_arg: object) -> object:
     return some_arg
+
+
+class SomeCls:
+    pass
 
 
 @dataclass
