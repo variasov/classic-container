@@ -11,7 +11,7 @@ class Container:
     """
     Классический IoC-контейнер.
 
-    Предоставляет два метода - register и resolve.
+    Предоставляет четыре метода - register, resolve, add_settings и reset.
     register нужен для регистрации классов, интерфейсов, функций и даже модулей.
     resolve принимает какой-либо класс (интерфейс), и возвращает инстанс
     указанного интерфейс с разрешенными зависимостями.
@@ -39,6 +39,10 @@ class Container:
         self.register(*settings.keys())
 
     def reset(self):
+        """
+        Удаляет добавленные настройки контейнера и ссылки на инстансы уже
+        созданных классов
+        """
         with self._lock:
             self._settings = dict()
             self.resolve.reset()

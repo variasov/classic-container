@@ -138,6 +138,10 @@ class Resolver:
             return self._get_instance(cls, stack)
 
     def reset(self):
+        """
+        Удаляет добавленные настройки контейнера и ссылки на инстансы уже
+        созданных классов
+        """
         self._settings = dict()
         self._instances = dict()
 
