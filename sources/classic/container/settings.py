@@ -234,7 +234,7 @@ class Settings:
 
 
 settings = Settings
-empty_settings = Settings()
+EMPTY_SETTINGS = Settings()
 
 
 def init(**kwargs: object) -> Settings:
