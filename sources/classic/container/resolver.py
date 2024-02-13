@@ -16,7 +16,13 @@ class Resolve:
     def __init__(self):
         self._stack = []
 
-    def add_target(self, target) -> None:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.pop()
+
+    def __call__(self, target) -> 'Resolve':
         self._stack.append({
             'cls_module': target.__module__,
             'cls': target.__qualname__,
@@ -24,6 +30,7 @@ class Resolve:
             'fctr': '-',
             'arg': '-'
         })
+        return self
 
     def add_factory(self, factory) -> None:
         self._stack[-1]['fctr_module'] = factory.__module__
@@ -96,7 +103,7 @@ class Resolver:
 
         Пример:
         >>> from abc import ABC, abstractmethod
-        ... from classic import container
+        ... from classic.container import container
         ...
         ... class Interface(ABC):
         ...
@@ -146,12 +153,10 @@ class Resolver:
         self._instances = dict()
 
     def _get_instance(self, cls: Target, stack: Resolve) -> object:
-        stack.add_target(cls)
-        if cls in self._instances:
-            return self._instances[cls]
-        instance = self._create_instance(cls, stack)
-        stack.pop()
-        return instance
+        with stack(cls):
+            if cls in self._instances:
+                return self._instances[cls]
+            return self._create_instance(cls, stack)
 
     def _get_factory_for(self, cls: Target, stack: Resolve) -> Factory:
         factories = self._registry[cls]

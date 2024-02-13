@@ -8,7 +8,9 @@ import example
 from example import (
     AnotherCls, Implementation1, Implementation2, Interface,
     SomeCls, YetAnotherCls, Composition, composition_factory,
-    NextLevelComposition, ErrorImplementation, empty_factory, some_func
+    NextLevelComposition, ErrorImplementation, empty_factory, some_func,
+
+    ManyImplComposition, AnyImplementation
 )
 
 
@@ -116,6 +118,31 @@ def test_message_resolve_chain(container):
         'Target: example.Interface, Factory: example.ErrorImplementation, Arg: some_str'
     )
     assert error == str(ext.value)
+
+def test_message_resolve_chain_exclude_ready_instances(container):
+    container.register(
+        ErrorImplementation, ManyImplComposition,
+        NextLevelComposition, AnyImplementation,
+    )
+
+    # Обработка исключения из цепочки вызова уже созданных объектов.
+    container.resolve(AnyImplementation)
+    container.add_settings({
+        ErrorImplementation: init(some_str=[1,2,3]),
+    })
+
+    with pytest.raises(ResolutionError) as ext:
+        container.resolve(NextLevelComposition)
+
+    error = (
+        'Call of <class \'example.ErrorImplementation\'> failed with can only concatenate list (not "str") to list\n'
+        'Resolve chain: \n'
+        'Target: example.NextLevelComposition, Factory: example.NextLevelComposition, Arg: obj\n'
+        'Target: example.Composition, Factory: example.ManyImplComposition, Arg: impl\n'
+        'Target: example.Interface, Factory: example.ErrorImplementation, Arg: some_str'
+    )
+    assert error == str(ext.value)
+    assert 'AnyImplementation' not in error
 
 
 def test_resolve_with_abc_implicit(container):

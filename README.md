@@ -58,7 +58,7 @@ impl = Accounts()
 service = Account(repo=impl)
 
 # Разрешение зависимостей через контейнер
-from classic import container
+from classic.container import container
 
 container.register(Accounts, Account)
 container.resolve(Account)
@@ -88,7 +88,7 @@ container.resolve(Account)
 
 ```python
 # Импортирование дефолтного контейнера
-from classic import container
+from classic.container import container
 
 # Самостоятельное создание контейнера
 from classic.container import Container
@@ -108,7 +108,7 @@ manual_container = Container()
 Существует только один способ зарегистрировать компоненты:
 ```python
 import os
-from classic import container
+from classic.container import container
 
 def some_factory() -> SomeClass:
     pass
@@ -156,7 +156,7 @@ container.register(os)
 
 ```python
 from abc import ABC, abstractmethod
-from classic import container
+from classic.container import container
 
 
 class Interface(ABC):
@@ -204,7 +204,7 @@ resolved = container.resolve(NextLevelComposition)
 созданных классов. Подразумевается использование в тестировании.
 ```python
 from dataclasses import dataclass
-from classic import container
+from classic.container import container
 
 
 class SomeCls:
@@ -255,7 +255,7 @@ result_1 is not result_2
 Пример:
 ```python 
 from abc import ABC, abstractmethod
-from classic import container
+from classic.container import container
 
 class Interface(ABC):
 

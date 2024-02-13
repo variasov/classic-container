@@ -13,6 +13,12 @@ class Implementation1(Interface):
         return 1
 
 
+class AnyImplementation:
+
+    def method(self):
+        return 1
+
+
 class Implementation2(Interface):
 
     def method(self):
@@ -32,6 +38,13 @@ class Composition:
 
     def __init__(self, impl: Interface):
         self.impl = impl
+
+
+class ManyImplComposition(Composition):
+
+    def __init__(self, any_impl: AnyImplementation, impl: Interface):
+        super().__init__(impl)
+        self.any_impl = any_impl
 
 
 class ManyTypedComposition:
