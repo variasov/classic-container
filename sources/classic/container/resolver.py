@@ -48,6 +48,11 @@ class Resolver:
         self._cache[cls] = instance
 
     def resolve(self, cls: type[Target]) -> Target:
+
+        # Это "предварительные" версии значений,
+        # нужные для того, чтобы в случае ошибки можно было собрать
+        # весь контекст в ошибку, вне зависимости от того, были ли
+        # объявлены переменные, или нет
         factory = None
         factory_settings = None
         factory_kwargs = {}
@@ -55,6 +60,7 @@ class Resolver:
         cls_settings_layer = None
 
         try:
+            # Если объект уже есть в кеше, то можно просто его отдать
             if cached := self.get_cached(cls):
                 return cached
 
@@ -105,16 +111,18 @@ class Resolver:
                 cls_settings_layer.cache_instance(cls, instance)
 
             return instance
-        except ResolutionError as exception:
-            exception.add(
-                cls=cls,
+        except Exception as exception:
+            if isinstance(exception, ResolutionError):
+                accumulator = exception
+            else:
+                accumulator = ResolutionError()
+
+            accumulator.add(
                 exception=exception,
+                cls=cls,
                 cls_settings=cls_settings,
-                cls_settings_layer=cls_settings_layer,
                 factory=factory,
                 factory_settings=factory_settings,
                 factory_kwargs=factory_kwargs,
             )
-            raise exception
-        except Exception as exception:
-            raise ResolutionError from exception
+            raise accumulator

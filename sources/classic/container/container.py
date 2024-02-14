@@ -60,7 +60,8 @@ class Container:
           ... container.register(os)
 
         """
-        self._registry.register(*args)
+        with self._lock:
+            self._registry.register(*args)
 
     def resolve(
         self, target: type[Object],
@@ -139,6 +140,9 @@ class Container:
         """
 
         with self._lock:
+            # Ссылка на предыдущий резолвер нужно запомнить,
+            # чтобы после завершения resolve можно было
+            # восстановить ссылку в _current_resolve
             previous = self._current_resolve
 
             self._current_resolve = Resolver(
@@ -168,6 +172,8 @@ class Container:
         Удаляет добавленные настройки контейнера и ссылки на инстансы уже
         созданных классов
         """
+        assert self._current_resolve is None
+
         with self._lock:
             self._settings.clear()
             self._cache.clear()
