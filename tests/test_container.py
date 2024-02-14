@@ -1,25 +1,14 @@
 import pytest
-from classic.container import (
-    Container, Settings, TRANSIENT, factory, scope, instance, init,
-)
+
+from classic.container import TRANSIENT, factory, scope, instance, init
 
 import example
 from example import (
     AnotherCls, Implementation1, Implementation2, Interface,
     SomeCls, YetAnotherCls, Composition, composition_factory,
-    NextLevelComposition, ErrorImplementation, empty_factory, some_func,
-    ManyImplComposition, AnyImplementation
+    NextLevelComposition, empty_factory, some_func,
+    SelfReferenced, CycledA, CycledB,
 )
-
-
-@pytest.fixture
-def container():
-    return Container()
-
-
-@pytest.fixture
-def settings():
-    return Settings()
 
 
 @pytest.mark.parametrize('obj', [
@@ -221,67 +210,14 @@ def test_reset_resolved_instances(container):
         container.resolve(Interface)
 
 
-def test_setting_raise_error(container):
+def test_cycle_detect(container):
+    container.register(SelfReferenced, CycledA, CycledB)
 
-    with pytest.raises(AssertionError):
-        container.add_settings({
-            Implementation1: Settings(
-                instance=Implementation1(), factory=Implementation1
-            ),
-        })
+    with pytest.raises(ValueError):
+        container.resolve(SelfReferenced)
 
-    with pytest.raises(AssertionError):
-        container.add_settings({
-            Implementation1: Settings().instance(Implementation1()).factory(
-                Implementation1
-            ),
-        })
+    with pytest.raises(ValueError):
+        container.resolve(CycledA)
 
-    with pytest.raises(AssertionError):
-        container.add_settings({
-            Implementation1: Settings().instance(
-                Implementation1()
-            ).init(some=1),
-        })
-
-    with pytest.raises(AssertionError):
-        container.add_settings({
-            Implementation1: Settings().instance(Implementation1()).scope(
-                TRANSIENT
-            ),
-        })
-
-    with pytest.raises(AssertionError):
-        container.add_settings({
-            Implementation1: Settings().factory(Implementation1).instance(
-                Implementation1()
-            ).scope(TRANSIENT),
-        })
-
-
-def test_chain_responsibility_factory(settings):
-    factory_settings = settings.factory(Implementation1)
-    assert settings is factory_settings
-
-
-def test_chain_responsibility_init(settings):
-    init_settings = settings.init(some=1)
-    assert settings is init_settings
-
-
-def test_chain_responsibility_scope(settings):
-    scope_settings = settings.scope(name=TRANSIENT)
-    assert settings is scope_settings
-
-
-def test_chain_responsibility_instance(settings):
-    impl = Implementation1()
-    impl_settings = settings.instance(instance=impl)
-    assert settings is impl_settings
-
-
-def test_chain_of_responsibility(settings):
-    many_settings = settings.factory(
-        Implementation1
-    ).init(some=1).scope(name=TRANSIENT)
-    assert settings is many_settings
+    with pytest.raises(ValueError):
+        container.resolve(CycledB)

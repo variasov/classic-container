@@ -17,8 +17,8 @@ class Settings:
             f'Scope name must be SINGLETON or TRANSIENT. Current is "{scope}"'
 
         assert instance is None or (
+            instance is not None and
             not factory and
-            not instance is None and
             not init and
             (scope is None or scope == 'SINGLETONE')
         ), (f'Container can use only instance or '

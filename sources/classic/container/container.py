@@ -13,24 +13,21 @@ class Container:
     """
     Классический IoC-контейнер.
 
-    Предоставляет четыре метода - register, resolve, add_settings и reset.
-    register нужен для регистрации классов, интерфейсов, функций и даже модулей.
-    resolve принимает какой-либо класс (интерфейс), и возвращает инстанс
-    указанного интерфейс с разрешенными зависимостями.
     """
 
     _registry: Registry
     _settings: dict[type[Object], Object]
     _cache: dict[type[Object], Object]
     _lock: threading.RLock
-    _current_resolve: Optional[Builder]
+    _current_builder: Optional[Builder]
+    _classes: set[type[Object]]
 
     def __init__(self):
         self._lock = threading.RLock()
         self._registry = Registry()
         self._settings = {}
         self._cache = {}
-        self._current_resolve = None
+        self._current_builder = None
 
     def register(self, *args: object) -> None:
         """
@@ -46,8 +43,9 @@ class Container:
         - Нормальные классы регистрируются как ключ и соответсвующая ему
           фабрика - конструктор самого класса.
         - Фабрики регистрируются сложнее, ключом будет являться результат из
-          аннотации функции, а значением сама фабрика. Пример:
-          >>> def some_factory() -> SomeClass:
+          аннотации функции, а значением сама фабрика.
+          Пример:
+          >>> def some_factory() -> SomeClass:  # NOQA
           ...     # будет зарегистрировано как SomeClass: [some_factory]
           ...     pass
 
@@ -57,7 +55,7 @@ class Container:
           >>> import os
           ... # будут зарегистрированы os и os.path
           ... # но не sys
-          ... container.register(os)
+          ... container.register(os)  # NOQA
 
         """
         with self._lock:
@@ -68,8 +66,7 @@ class Container:
         settings: dict[type[object], Settings] = None,
     ) -> Object:
         """
-        Разрешает зависимости для указанной реализации,
-        создает и возвращает инстанс класса.
+        Собирает объект с его деревом зависимостей для указанной реализации.
 
         Рекурсивно обходит дерево зависимостей, начиная с указанного класса.
         На каждый шаг рекурсии для указанного класса ищется фабрика в реестре.
@@ -89,71 +86,28 @@ class Container:
          - фабрика для аргумента вернула None
            и для аргумента не указан значение по умолчанию;
          - при вызове фабрики не был указан обязательный аргумент.
-        Во всех этих случаях контейнер выкидывает ResolutionError.
-
-        Все ошибки состоят из двух частей. Первая часть уникальна для ошибки
-        и объясняет причину, во второй части описано,
-        что и в каком порядке пытался построить контейнер.
-        Она состоит из строк, по три элемента в каждой:
-         - Target: полное имя класса (some.module.SomeClass);
-         - Factory: полное имя фабрики (another.module.SomeFactory);
-         - Arg: имя аргумента фабрики.
-
-        Пример:
-        >>> from abc import ABC, abstractmethod
-        ... from classic.container import container
-        ...
-        ... class Interface(ABC):
-        ...
-        ...     @abstractmethod
-        ...     def method(self): ...
-        ...
-        ... class Implementation(Interface):
-        ...
-        ...     def __init__(self):
-        ...         raise NotImplemented
-        ...
-        ...     def method(self):
-        ...         return 1
-        ...
-        ... class Composition:
-        ...
-        ...     def __init__(self, impl: Interface):
-        ...         self.impl = impl
-        ...
-        ... class SomeClass:
-        ...
-        ...     def __init__(self, obj: Composition):
-        ...         self.obj = obj
-        ...
-        ...
-        ... container.register(Interface, Implementation, SomeClass, Composition)
-        ... container.build(SomeClass)
-        ...
-        classic.container.exceptions.ResolutionError: Class \
-        <class 'example.Interface'> do not have registered implementations.
-        Resolve chain:
-        Target: app.SomeClass, Factory: app.SomeClass, Arg: obj
-        Target: app.Composition, Factory: app.Composition, Arg: impl
-        Target: app.Interface, Factory: app.Implementation, Arg: -
-
+        Во всех этих случаях контейнер выкидывает ValueError с описанием ошибки.
         """
 
         with self._lock:
-            # Ссылка на предыдущий резолвер нужно запомнить,
+            if not self._current_builder:
+                self._classes = set()
+
+            # Ссылку на предыдущий сборщик нужно запомнить,
             # чтобы после завершения resolve можно было
             # восстановить ссылку в _current_resolve
-            previous = self._current_resolve
+            previous = self._current_builder
 
-            self._current_resolve = Builder(
+            self._current_builder = Builder(
                 registry=self._registry,
                 settings=self._settings if not previous else settings or {},
                 cache=self._cache if not previous else {},
+                classes=self._classes,
                 previous=previous,
             )
-            result = self._current_resolve.build(target)
+            result = self._current_builder.build(target)
 
-            self._current_resolve = previous
+            self._current_builder = previous
 
         return result
 
@@ -161,18 +115,26 @@ class Container:
         """
         Добавляет или обновляет настройки контейнера.
 
-        Ключом является класс, значение - настройки.
+        Принимает словарь, в котором ключи - классы,
+        значения - объекты Settings.
         """
         with self._lock:
             self._settings.update(settings)
+
+            # Логично предположить, что если для классов указано что-либо
+            # в настройках, то можно это автоматически регистрировать
             self.register(*settings.keys())
 
     def reset(self):
         """
-        Удаляет добавленные настройки контейнера и ссылки на инстансы уже
-        созданных классов
+        Удаляет добавленные настройки контейнера и ссылки на инстансы ранее
+        созданных классов. Не должен вызываться во время resolve.
         """
-        assert self._current_resolve is None
+
+        # В случае, если reset запрошен во время resolve,
+        # дешевле выбросить исключение, чем разгребать
+        # очень странные ошибки
+        assert self._current_builder is None
 
         with self._lock:
             self._settings.clear()

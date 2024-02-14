@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
+
 class Interface(ABC):
 
     @abstractmethod
@@ -13,6 +14,7 @@ class Implementation1(Interface):
         return 1
 
 
+# TODO: Заюзать или выпилить
 class AnyImplementation:
 
     def method(self):
@@ -25,6 +27,7 @@ class Implementation2(Interface):
         return 2
 
 
+# TODO: Заюзать или выпилить
 class ErrorImplementation(Interface):
 
     def __init__(self, some_str: str):
@@ -40,6 +43,7 @@ class Composition:
         self.impl = impl
 
 
+# TODO: Заюзать или выпилить
 class ManyImplComposition(Composition):
 
     def __init__(self, any_impl: AnyImplementation, impl: Interface):
@@ -84,3 +88,18 @@ class AnotherCls:
 class YetAnotherCls:
     some: SomeCls
     another: AnotherCls
+
+
+@dataclass
+class CycledA:
+    instance: 'CycledB'
+
+
+@dataclass
+class CycledB:
+    instance: CycledA
+
+
+@dataclass
+class SelfReferenced:
+    instance: 'SelfReferenced'
