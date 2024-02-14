@@ -29,6 +29,19 @@ class Settings:
         self.factory_ = factory
         self.instance_ = instance
 
+    def __repr__(self):
+        rows = []
+        if self.scope_:
+            rows.append(f'scope={self.scope_}')
+        if self.init_:
+            rows.append(f'init={self.init_}')
+        if self.factory_:
+            rows.append(f'factory={self.factory_}')
+        if self.instance_:
+            rows.append(f'instance={self.instance_}')
+        args = ', '.join(rows)
+        return f'<container.Settings({args})>'
+
     def init(self, **kwargs: object) -> 'Settings':
         """
         Позволяет установить значения аргументов для фабрики

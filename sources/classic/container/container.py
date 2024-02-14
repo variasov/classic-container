@@ -2,7 +2,7 @@ import threading
 from typing import TypeVar, Optional
 
 from .registry import Registry
-from .resolver import Resolver
+from .builder import Builder
 from .settings import Settings
 
 
@@ -23,7 +23,7 @@ class Container:
     _settings: dict[type[Object], Object]
     _cache: dict[type[Object], Object]
     _lock: threading.RLock
-    _current_resolve: Optional[Resolver]
+    _current_resolve: Optional[Builder]
 
     def __init__(self):
         self._lock = threading.RLock()
@@ -128,7 +128,7 @@ class Container:
         ...
         ...
         ... container.register(Interface, Implementation, SomeClass, Composition)
-        ... container.resolve(SomeClass)
+        ... container.build(SomeClass)
         ...
         classic.container.exceptions.ResolutionError: Class \
         <class 'example.Interface'> do not have registered implementations.
@@ -145,13 +145,13 @@ class Container:
             # восстановить ссылку в _current_resolve
             previous = self._current_resolve
 
-            self._current_resolve = Resolver(
+            self._current_resolve = Builder(
                 registry=self._registry,
                 settings=self._settings if not previous else settings or {},
                 cache=self._cache if not previous else {},
                 previous=previous,
             )
-            result = self._current_resolve.resolve(target)
+            result = self._current_resolve.build(target)
 
             self._current_resolve = previous
 

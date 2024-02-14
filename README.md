@@ -31,6 +31,7 @@
 
 
 Пример простого приложения:
+
 ```python
 from abc import ABC, abstractmethod
 
@@ -48,10 +49,11 @@ class Accounts(InterfaceRepo):
 
 
 class Account:
-    
+
     # Dependency Injection
     def __init__(self, repo: InterfaceRepo):
         self.repo = repo
+
 
 # Ручное разрешение зависимостей 
 impl = Accounts()
@@ -61,7 +63,7 @@ service = Account(repo=impl)
 from classic.container import container
 
 container.register(Accounts, Account)
-container.resolve(Account)
+container.build(Account)
 ```
 При малых объемах кода ручное внедрение зависимостей выглядит достаточно 
 лаконично. Сборка же через контейнер на оборот, выглядит громоздко. 
@@ -153,7 +155,6 @@ container.register(os)
 - [`instance`](#instance) создания настроек с готовым объектом при разрешении
     зависимостей
 
-
 ```python
 from abc import ABC, abstractmethod
 from classic.container import container
@@ -186,6 +187,7 @@ class NextLevelComposition:
 def composition_factory(obj: Interface) -> Composition:
     return Composition(obj)
 
+
 container.register(
     composition_factory, Implementation, Composition, NextLevelComposition
 )
@@ -195,13 +197,14 @@ container.add_settings({
     Composition: container.factory(composition_factory)
 })
 
-resolved = container.resolve(NextLevelComposition)
+resolved = container.build(NextLevelComposition)
 ```
 Подробное описание в классе Settings
 
 ### reset
 Удаляет добавленные настройки контейнера и ссылки на инстансы уже 
 созданных классов. Подразумевается использование в тестировании.
+
 ```python
 from dataclasses import dataclass
 from classic.container import container
@@ -214,10 +217,11 @@ class SomeCls:
 @dataclass
 class AnotherCls:
     some: SomeCls
-    
-result_1 = container.resolve(AnotherCls)
+
+
+result_1 = container.build(AnotherCls)
 container.reset()
-result_2 = container.resolve(AnotherCls)
+result_2 = container.build(AnotherCls)
 
 result_1 is not result_2
 ```
@@ -253,35 +257,41 @@ result_1 is not result_2
  - Arg: имя аргумента фабрики.
 
 Пример:
+
 ```python 
 from abc import ABC, abstractmethod
 from classic.container import container
+
 
 class Interface(ABC):
 
     @abstractmethod
     def method(self): ...
 
+
 class Implementation(Interface):
 
     def __init__(self):
         raise NotImplemented
-    
+
     def method(self):
         return 1
 
+
 class Composition:
-    
+
     def __init__(self, impl: Interface):
         self.impl = impl
 
+
 class SomeClass:
-    
+
     def __init__(self, obj: Composition):
         self.obj = obj
 
+
 container.register(Interface, Implementation, SomeClass, Composition)
-container.resolve(SomeClass)
+container.build(SomeClass)
 ```
 ```python 
 classic.container.exceptions.ResolutionError: Class \
