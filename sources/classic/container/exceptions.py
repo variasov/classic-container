@@ -1,5 +1,5 @@
 
-class ResolutionError(BaseException):
+class ResolutionError(Exception):
 
     def __init__(self):
         self.stack = []

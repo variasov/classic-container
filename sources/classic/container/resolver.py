@@ -125,4 +125,4 @@ class Resolver:
                 factory_settings=factory_settings,
                 factory_kwargs=factory_kwargs,
             )
-            raise accumulator
+            raise accumulator from exception

@@ -98,7 +98,7 @@ def test_resolve_empty_factory(container):
         container.resolve(Composition)
 
 
-@pytest.mark.skip('Непонятно, как правильно проверять сообщения об ошибках')
+# @pytest.mark.skip('Непонятно, как правильно проверять сообщения об ошибках')
 def test_message_resolve_chain(container):
     container.register(
         ErrorImplementation, Composition,
@@ -106,7 +106,7 @@ def test_message_resolve_chain(container):
     )
 
     container.add_settings({
-        ErrorImplementation: init(some_str=[1,2,3])
+        ErrorImplementation: init(some_str=[1, 2, 3])
     })
     with pytest.raises(ResolutionError) as ext:
         container.resolve(NextLevelComposition)
