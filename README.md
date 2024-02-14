@@ -69,6 +69,45 @@ container.build(Account)
 лаконично. Сборка же через контейнер на оборот, выглядит громоздко. 
 При увеличении объемов кода, разница будет в пользу контейнера. 
 
+### Поиск ошибок
+При возникновении ошибки бывает сложно понять, что в контейнере пошло не так.
+
+Во время разработки рекомендуется устанавливать пакет в `debug` варианте:
+`pip install classic-container[debug]`
+
+Это подтянет пакет `traceback_with_variables`:
+https://pypi.org/project/traceback-with-variables/
+
+Для использования вовремя отладки нужно импортировать в композите с ошибкой.
+
+Пример:
+```python
+from traceback_with_variables import activate_by_import
+```
+Пример трейса: 
+```python
+ File "home/classic/container/builder.py", line 105, in build
+    instance = factory(**factory_kwargs)
+      self = <classic.container.builder.Builder object at 0x7fb37c9a68f0>
+      target = <class '__main__.Interface'>
+      cached = None
+      target_settings = <container.Settings(scope=SINGLETON)>
+      target_settings_layer = <classic.container.builder.Builder object at 0x7fb37c9a68f0>
+      factory = <class '__main__.ErrorImplementation'>
+      factory_settings = <container.Settings(scope=SINGLETON, init={'some_str': [1, 2, 3]})>
+      factory_kwargs = {'some_str': [1, 2, 3]}
+      signature = <Signature (some_str: str)>
+      parameter = <Parameter "some_str: str">
+```
+В трейслоге вас интересует:
+ - `target` запрошенный класс  
+ - `target_settings` настройки запрошенного класса 
+ - `factory` фабрика построения класса
+ - `factory_settings` настройки фабрики
+ - `factory_kwargs` подаваемые параметры фабрики
+ - `signature` сигнатура фабрики https://docs.python.org/3/library/inspect.html#introspecting-callables-with-the-signature-object
+ - `parameter` последний параметр опрошенный в цикле, для которого был вызван `build`
+
 ## Container
 
 Предоставляет четыре метода - [`register`](#register), [`add_settings`](#add_settings), [`reset`](#reset) и [`resolve`](#resolve).

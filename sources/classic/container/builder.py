@@ -1,7 +1,6 @@
 import inspect
 from typing import Callable, Optional
 
-from .exceptions import ResolutionError
 from .constants import SINGLETON, SIMPLE_TYPES
 from .settings import Settings, EMPTY_SETTINGS
 from .registry import Registry
@@ -47,81 +46,67 @@ class Builder:
     def cache_instance(self, cls: type[Target], instance: Target) -> None:
         self._cache[cls] = instance
 
-    def build(self, cls: type[Target]) -> Target:
+    def build(self, target: type[Target]) -> Target:
+        # Если объект уже есть в кеше, то можно просто его отдать
+        if cached := self.get_cached(target):
+            return cached
 
-        # Это "предварительные" версии значений,
-        # нужные для того, чтобы в случае ошибки можно было собрать
-        # весь контекст в ошибку, вне зависимости от того, были ли
-        # объявлены переменные, или нет
-        factory = None
-        factory_settings = None
+        # Ищем настройки для указанного класса
+        target_settings, target_settings_layer = self.get_settings(target)
+
+        # Инстанс, заданный в настройках возвращается как есть
+        if target_settings.instance_:
+            return target_settings.instance_
+
+        # Выбираем фабрику для указанного класса
+        factory = target_settings.factory_ or self._registry.get(target)
+        factory_settings = self.get_settings(factory)[0]
+
+        # Фабрика выбрана, далее нужно собрать аргументы.
+        # Нужно получаем сигнатуру для фабрики,
+        # чтобы по ней построить аргументы для вызова фабрики
         factory_kwargs = {}
-        cls_settings = None
-        cls_settings_layer = None
-        parameter = None
+        signature = self._registry.signature(factory)
+        for parameter in signature.parameters.values():
 
-        try:
-            # Если объект уже есть в кеше, то можно просто его отдать
-            if cached := self.get_cached(cls):
-                return cached
+            # Если для параметра в init было указанно значение,
+            # то берем значение "как есть".
+            if parameter.name in factory_settings.init_:
+                factory_kwargs[parameter.name] = (
+                    factory_settings.init_[parameter.name]
+                )
+                continue
 
-            cls_settings, cls_settings_layer = self.get_settings(cls)
-            if cls_settings.instance_:
-                return cls_settings.instance_
+            # Параметры без аннотации пропускаются
+            if parameter.annotation is inspect.Parameter.empty:
+                continue
 
-            factory = cls_settings.factory_ or self._registry.get(cls)
-            factory_settings, __ = self.get_settings(factory)
+            # Для аргументов простых типов контейнер не ищет фабрики
+            if parameter.annotation in SIMPLE_TYPES:
+                continue
 
-            signature = self._registry.signature(factory)
-            for parameter in signature.parameters.values():
-                if parameter.name in factory_settings.init_:
-                    factory_kwargs[parameter.name] = (
-                        factory_settings.init_[parameter.name]
-                    )
-                    continue
-
-                if parameter.annotation is inspect.Parameter.empty:
-                    continue
-
-                if parameter.annotation in SIMPLE_TYPES:
-                    continue
-
-                if (
-                    isinstance(parameter.annotation, Callable)
-                    and not inspect.isclass(parameter.annotation)
-                ):
-                    continue
-
+            # Инстанцирование аргумента
+            if inspect.isclass(parameter.annotation):
                 instance = self.build(parameter.annotation)
                 if instance is not None:
                     factory_kwargs[parameter.name] = instance
 
+                # Странный случай, когда фабрика вернула None
                 elif parameter.default is inspect.Parameter.empty:
                     raise ValueError(
                         f"Can't resole attribute {parameter.name} "
                         f"for {factory}, attribute don't have default value "
-                        f"and {factory} has returned None \n"
+                        f"and {factory} has returned None. "
+                        f"Maybe you have forgot to add 'return' "
+                        f"to the end of your factory?"
                     )
 
-            instance = factory(**factory_kwargs)
+        # Постройка инстанса указанного класса
+        instance = factory(**factory_kwargs)
 
-            if instance and cls_settings.scope_ == SINGLETON:
-                cls_settings_layer.cache_instance(cls, instance)
+        # TRANSIENT объекты не кешируются,
+        # чтобы контейнер при каждом запросе строил их заново
+        if instance and target_settings.scope_ == SINGLETON:
+            target_settings_layer.cache_instance(target, instance)
 
-            return instance
-        except Exception as exception:
-            if isinstance(exception, ResolutionError):
-                accumulator = exception
-            else:
-                accumulator = ResolutionError()
-
-            accumulator.add(
-                cls=cls,
-                cls_settings=cls_settings,
-                factory=factory,
-                factory_settings=factory_settings,
-                factory_kwargs=factory_kwargs,
-                parameter=parameter
-            )
-
-            raise accumulator
+        return instance

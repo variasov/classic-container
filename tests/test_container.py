@@ -1,7 +1,6 @@
 import pytest
 from classic.container import (
-    Container, ResolutionError, Settings,
-    TRANSIENT, factory, scope, instance, init,
+    Container, Settings, TRANSIENT, factory, scope, instance, init,
 )
 
 import example
@@ -74,18 +73,18 @@ def test_resolve_with_abc(container):
 def test_resolve_without_implementation(container):
     container.register(Interface)
 
-    with pytest.raises(ResolutionError):
+    with pytest.raises(ValueError):
         container.resolve(Interface)
 
 
 def test_resolve_without_registration(container):
-    with pytest.raises(ResolutionError):
+    with pytest.raises(ValueError):
         container.resolve(Interface)
 
 
 def test_resolve_with_type_error(container):
     container.add_settings({Interface: factory(some_func)})
-    with pytest.raises(ResolutionError):
+    with pytest.raises(ValueError):
         container.resolve(Interface)
 
 
@@ -94,57 +93,8 @@ def test_resolve_empty_factory(container):
     container.add_settings({
         Interface: factory(empty_factory)
     })
-    with pytest.raises(ResolutionError):
+    with pytest.raises(ValueError):
         container.resolve(Composition)
-
-
-@pytest.mark.skip('Непонятно, как правильно проверять сообщения об ошибках')
-def test_message_resolve_chain(container):
-    container.register(
-        ErrorImplementation, Composition,
-        NextLevelComposition
-    )
-
-    container.add_settings({
-        ErrorImplementation: init(some_str=[1, 2, 3])
-    })
-    with pytest.raises(ResolutionError) as ext:
-        container.resolve(NextLevelComposition)
-
-    assert str(ext.value) == (
-        'Call of <class \'example.ErrorImplementation\'> failed with can only concatenate list (not "str") to list\n'
-        'Resolve chain: \n'
-        'Target: example.NextLevelComposition, Factory: example.NextLevelComposition, Arg: obj\n'
-        'Target: example.Composition, Factory: example.Composition, Arg: impl\n'
-        'Target: example.Interface, Factory: example.ErrorImplementation, Arg: some_str'
-    )
-
-
-@pytest.mark.skip('Непонятно, как правильно проверять сообщения об ошибках')
-def test_message_resolve_chain_exclude_ready_instances(container):
-    container.register(
-        ErrorImplementation, ManyImplComposition,
-        NextLevelComposition, AnyImplementation,
-    )
-
-    # Обработка исключения из цепочки вызова уже созданных объектов.
-    container.resolve(AnyImplementation)
-    container.add_settings({
-        ErrorImplementation: init(some_str=[1, 2, 3]),
-    })
-
-    with pytest.raises(ResolutionError) as ext:
-        container.resolve(NextLevelComposition)
-
-    error_text = str(ext.value)
-    assert error_text == (
-        'Call of <class \'example.ErrorImplementation\'> failed with can only concatenate list (not "str") to list\n'
-        'Resolve chain: \n'
-        'Target: example.NextLevelComposition, Factory: example.NextLevelComposition, Arg: obj\n'
-        'Target: example.Composition, Factory: example.ManyImplComposition, Arg: impl\n'
-        'Target: example.Interface, Factory: example.ErrorImplementation, Arg: some_str'
-    )
-    assert 'AnyImplementation' not in error_text
 
 
 def test_resolve_with_abc_implicit(container):
@@ -219,7 +169,7 @@ def test_resolve_init(container):
 def test_raise_when_many_implementations(container):
     container.register(Interface, Implementation1, Implementation2)
 
-    with pytest.raises(ResolutionError):
+    with pytest.raises(ValueError):
         container.resolve(Interface)
 
 
@@ -267,7 +217,7 @@ def test_reset_resolved_instances(container):
     result_2 = container.resolve(YetAnotherCls)
 
     assert result_1 is not result_2
-    with pytest.raises(ResolutionError):
+    with pytest.raises(ValueError):
         container.resolve(Interface)
 
 
