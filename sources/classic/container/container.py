@@ -20,7 +20,6 @@ class Container:
     _cache: dict[type[Object], Object]
     _lock: threading.RLock
     _current_builder: Optional[Builder]
-    _classes: set[type[Object]]
 
     def __init__(self):
         self._lock = threading.RLock()
@@ -90,8 +89,6 @@ class Container:
         """
 
         with self._lock:
-            if not self._current_builder:
-                self._classes = set()
 
             # Ссылку на предыдущий сборщик нужно запомнить,
             # чтобы после завершения resolve можно было
@@ -102,7 +99,6 @@ class Container:
                 registry=self._registry,
                 settings=self._settings if not previous else settings or {},
                 cache=self._cache if not previous else {},
-                classes=self._classes,
                 previous=previous,
             )
             result = self._current_builder.build(target)

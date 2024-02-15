@@ -18,14 +18,13 @@ class Builder:
         registry: Registry,
         settings: dict[type[Target], Settings],
         cache: dict[type[Target], Target],
-        classes: set[type[Target]],
         previous: 'Builder' = None,
     ):
         self._registry = registry
         self._settings = settings
         self._cache = cache
-        self._classes = classes
         self._previous = previous
+        self._classes = set()
 
     def get_settings(self, target: Target) -> tuple[Settings, 'Builder']:
         """
