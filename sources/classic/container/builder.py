@@ -110,7 +110,7 @@ class Builder:
         # Нужно получаем сигнатуру для фабрики,
         # чтобы по ней построить аргументы для вызова фабрики
         factory_kwargs = {}
-        for name, annotation in self._registry.signature(factory).items():
+        for name, parameter in self._registry.signature(factory).items():
 
             # Если для параметра в init было указанно значение,
             # то берем значение "как есть".
@@ -119,17 +119,17 @@ class Builder:
                 continue
 
             # Для аргументов простых типов контейнер не ищет фабрики
-            if annotation in SIMPLE_TYPES:
+            if parameter.annotation in SIMPLE_TYPES:
                 continue
 
             # Инстанцирование аргумента
-            if inspect.isclass(annotation):
-                instance = self.build(annotation)
+            if inspect.isclass(parameter.annotation):
+                instance = self.build(parameter.annotation)
                 if instance is not None:
                     factory_kwargs[name] = instance
 
-                # Странный случай, когда фабрика вернула None
-                if instance is None:
+                # Случай, когда нечего указать в обязательный аргумент
+                elif parameter.default is inspect.Parameter.empty:
                     raise ValueError(
                         f"Can't resole attribute {name} "
                         f"for {factory}, attribute don't have default value "
