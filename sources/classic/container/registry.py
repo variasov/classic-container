@@ -26,7 +26,7 @@ class Registry:
         self._signatures_cache = {}
 
     @lru_cache(1000)
-    def signature(self, cls: Target) -> dict[str, object]:
+    def signature(self, cls: Target) -> dict[str, inspect.Parameter]:
         """
         Возвращает описание сигнатуры указанной фабрики.
         Отличается от обычного inspect.signature тем,
@@ -46,7 +46,7 @@ class Registry:
             else:
                 hint = parameter.annotation
 
-            result[name] = hint
+            result[name] = parameter.replace(annotation=hint)
 
         return result
 
