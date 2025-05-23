@@ -87,8 +87,6 @@ class Builder:
         найденной для указанного класса.
         """
 
-        assert inspect.isclass(target)
-
         # Если объект уже есть в кеше, то можно просто его отдать
         if cached := self.get_cached(target):
             return cached

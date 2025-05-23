@@ -7,7 +7,7 @@ from example import (
     AnotherCls, Implementation1, Implementation2, Interface,
     SomeCls, YetAnotherCls, Composition, composition_factory,
     NextLevelComposition, empty_factory, some_func,
-    SelfReferenced, CycledA, CycledB,
+    SelfReferenced, CycledA, CycledB, SomeGeneric,
 )
 
 
@@ -221,3 +221,15 @@ def test_cycle_detect(container):
 
     with pytest.raises(ValueError):
         container.resolve(CycledB)
+
+
+def test_generic(container):
+    container.register(SomeGeneric, SomeGeneric[int])
+
+    container.add_settings({
+        SomeGeneric: factory(lambda: '123'),
+        SomeGeneric[int]: factory(lambda: 10),
+    })
+
+    assert container.resolve(SomeGeneric) is '123'
+    assert container.resolve(SomeGeneric[int]) is 10

@@ -5,7 +5,7 @@ from itertools import chain
 import inspect
 from types import ModuleType
 from typing import (
-    Optional, Callable, get_type_hints, Tuple, Sequence, Generator,
+    Optional, Callable, get_type_hints, Tuple, Sequence, Generator, get_origin,
 )
 
 from .types import Factory, Registerable, ModuleOrTarget, Target
@@ -106,6 +106,10 @@ class Registry:
             self._register_class(target)
             result = 'class'
 
+        elif _is_generic(target):
+            self._register_interface(target)
+            result = 'generic'
+
         return result
 
     def _register_interface(self, interface: ABC) -> None:
@@ -175,6 +179,10 @@ class Registry:
 
 def _is_submodule(submodule: ModuleType, module: ModuleType) -> bool:
     return submodule.__name__.startswith(module.__name__)
+
+
+def _is_generic(target: type[object]) -> bool:
+    return get_origin(target) is not None
 
 
 def _get_members(module: ModuleType) -> Tuple[Sequence[Registerable],

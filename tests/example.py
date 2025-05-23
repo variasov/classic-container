@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import TypeVar, Generic
 
 
 class Interface(ABC):
@@ -103,3 +104,8 @@ class CycledB:
 @dataclass
 class SelfReferenced:
     instance: 'SelfReferenced'
+
+
+T = TypeVar('T')
+class SomeGeneric(Generic[T]):
+    pass
