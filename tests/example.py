@@ -109,3 +109,8 @@ class SelfReferenced:
 T = TypeVar('T')
 class SomeGeneric(Generic[T]):
     pass
+
+
+@dataclass
+class DependsFromGeneric:
+    dep: SomeGeneric[int]

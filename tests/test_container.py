@@ -7,7 +7,7 @@ from example import (
     AnotherCls, Implementation1, Implementation2, Interface,
     SomeCls, YetAnotherCls, Composition, composition_factory,
     NextLevelComposition, empty_factory, some_func,
-    SelfReferenced, CycledA, CycledB, SomeGeneric,
+    SelfReferenced, CycledA, CycledB, SomeGeneric, DependsFromGeneric,
 )
 
 
@@ -233,3 +233,14 @@ def test_generic(container):
 
     assert container.resolve(SomeGeneric) is '123'
     assert container.resolve(SomeGeneric[int]) is 10
+
+
+def test_generic_as_dependency(container):
+    container.register(DependsFromGeneric, SomeGeneric[int])
+
+    container.add_settings({
+        SomeGeneric: factory(lambda: '123'),
+        SomeGeneric[int]: factory(lambda: 10),
+    })
+
+    assert container.resolve(DependsFromGeneric).dep is 10

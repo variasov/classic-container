@@ -2,7 +2,7 @@ import inspect
 
 from .constants import SINGLETON, SIMPLE_TYPES
 from .settings import Settings, EMPTY_SETTINGS
-from .registry import Registry
+from .registry import Registry, _is_generic
 from .types import Target
 
 
@@ -121,7 +121,10 @@ class Builder:
                 continue
 
             # Инстанцирование аргумента
-            if inspect.isclass(parameter.annotation):
+            if (
+                inspect.isclass(parameter.annotation)
+                or _is_generic(parameter.annotation)
+            ):
                 instance = self.build(parameter.annotation)
                 if instance is not None:
                     factory_kwargs[name] = instance
