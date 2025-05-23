@@ -119,3 +119,15 @@ class DependsFromGeneric:
 @dataclass
 class DependsFromOptionalGeneric:
     dep: Optional[SomeGeneric[int]] = None
+
+
+class ClsWithArgs:
+
+    def __init__(self, *args):
+        self.args = args
+
+
+class ClsWithKwargs:
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs

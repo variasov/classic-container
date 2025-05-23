@@ -11,6 +11,7 @@ from example import (
     NextLevelComposition, empty_factory, some_func,
     SelfReferenced, CycledA, CycledB, SomeGeneric,
     DependsFromGeneric, DependsFromOptionalGeneric,
+    ClsWithArgs, ClsWithKwargs,
 )
 
 
@@ -264,3 +265,15 @@ def test_generic_as_optinal_dependency_eq_none(container):
     container.register(DependsFromOptionalGeneric, SomeGeneric[int])
 
     assert container.resolve(DependsFromOptionalGeneric).dep is None
+
+
+def test_with_args_in_constructor(container):
+    container.register(ClsWithArgs)
+
+    assert container.resolve(ClsWithArgs).args == ()
+
+
+def test_with_kwargs_in_constructor(container):
+    container.register(ClsWithKwargs)
+
+    assert container.resolve(ClsWithKwargs).kwargs == {}
