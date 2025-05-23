@@ -1,3 +1,5 @@
+from typing import Optional
+
 import pytest
 
 from classic.container import TRANSIENT, factory, scope, instance, init
@@ -7,7 +9,8 @@ from example import (
     AnotherCls, Implementation1, Implementation2, Interface,
     SomeCls, YetAnotherCls, Composition, composition_factory,
     NextLevelComposition, empty_factory, some_func,
-    SelfReferenced, CycledA, CycledB, SomeGeneric, DependsFromGeneric,
+    SelfReferenced, CycledA, CycledB, SomeGeneric,
+    DependsFromGeneric, DependsFromOptionalGeneric,
 )
 
 
@@ -244,3 +247,20 @@ def test_generic_as_dependency(container):
     })
 
     assert container.resolve(DependsFromGeneric).dep is 10
+
+
+def test_generic_as_optinal_dependency(container):
+    container.register(DependsFromOptionalGeneric, SomeGeneric[int])
+
+    container.add_settings({
+        SomeGeneric: factory(lambda: '123'),
+        Optional[SomeGeneric[int]]: factory(lambda: 10),
+    })
+
+    assert container.resolve(DependsFromOptionalGeneric).dep is 10
+
+
+def test_generic_as_optinal_dependency_eq_none(container):
+    container.register(DependsFromOptionalGeneric, SomeGeneric[int])
+
+    assert container.resolve(DependsFromOptionalGeneric).dep is None

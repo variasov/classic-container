@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TypeVar, Generic
+from typing import TypeVar, Generic, Optional
 
 
 class Interface(ABC):
@@ -114,3 +114,8 @@ class SomeGeneric(Generic[T]):
 @dataclass
 class DependsFromGeneric:
     dep: SomeGeneric[int]
+
+
+@dataclass
+class DependsFromOptionalGeneric:
+    dep: Optional[SomeGeneric[int]] = None

@@ -125,7 +125,14 @@ class Builder:
                 inspect.isclass(parameter.annotation)
                 or _is_generic(parameter.annotation)
             ):
-                instance = self.build(parameter.annotation)
+                try:
+                    instance = self.build(parameter.annotation)
+                except ValueError:
+                    if parameter.default is None:
+                        continue
+                    else:
+                        raise
+
                 if instance is not None:
                     factory_kwargs[name] = instance
 
