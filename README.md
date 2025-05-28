@@ -85,7 +85,7 @@ https://pypi.org/project/traceback-with-variables/
 from traceback_with_variables import activate_by_import
 ```
 Пример трейса: 
-```python
+```
  File "home/classic/container/builder.py", line 105, in build
     instance = factory(**factory_kwargs)
       self = <classic.container.builder.Builder object at 0x7fb37c9a68f0>

@@ -97,7 +97,7 @@ class Container:
 
             self._current_builder = Builder(
                 registry=self._registry,
-                settings=self._settings if not previous else settings or {},
+                settings=settings or self._settings,
                 cache=self._cache if not previous else {},
                 previous=previous,
             )

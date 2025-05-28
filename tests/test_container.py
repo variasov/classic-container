@@ -277,3 +277,16 @@ def test_with_kwargs_in_constructor(container):
     container.register(ClsWithKwargs)
 
     assert container.resolve(ClsWithKwargs).kwargs == {}
+
+
+def test_error(container):
+    container.register(SomeCls, AnotherCls)
+
+    some_settings = {
+        SomeCls: factory(lambda: '123'),
+        AnotherCls: factory(lambda: AnotherCls(
+            some=container.resolve(SomeCls, some_settings),
+        )),
+    }
+
+    assert container.resolve(AnotherCls, some_settings).some is '123'
