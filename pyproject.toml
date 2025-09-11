@@ -4,3 +4,32 @@ requires = [
     "wheel"
 ]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "classic-container"
+version = "0.7.5"
+authors = [
+    {name = "Sergey Variasov", email = "variasov@gmail.com"},
+]
+description = "Utilites for composites layer"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/variasov/classic-container"
+
+[project.optional-dependencies]
+dev = [
+    "build~=1.2.2.post1",
+    "pytest==8.3.4",
+    "pytest-cov==6.0.0",
+    "twine~=4.0",
+]
+debug = [
+    'traceback-with-variables~=2.0',
+]
+
+[tool.setuptools.packages.find]
+where = ["sources"]
+namespaces = true
